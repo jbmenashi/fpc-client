@@ -14,6 +14,7 @@ export default function TodosScreen() {
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [updatingTodos, setUpdatingTodos] = useState(new Set());
+  const [deletingTodos, setDeletingTodos] = useState(new Set());
 
   useEffect(() => {
     fetchTodos();
@@ -124,6 +125,44 @@ export default function TodosScreen() {
     }
   };
 
+  const deleteTodo = async (todo) => {
+    const todoId = todo._id;
+    if (!todoId) {
+      return;
+    }
+
+    // Add to deleting set
+    setDeletingTodos(prev => new Set(prev).add(todoId));
+
+    try {
+      const token = await getToken();
+      const url = `${API_BASE}/todos/${todoId}`;
+
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to delete todo: ${res.status}`);
+      }
+
+      // Remove the todo from the local state
+      setTodos(prevTodos => prevTodos.filter(t => t._id !== todoId));
+    } catch (e) {
+      // Error handling - could show error to user if needed
+    } finally {
+      // Remove from deleting set
+      setDeletingTodos(prev => {
+        const next = new Set(prev);
+        next.delete(todoId);
+        return next;
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Todos</Text>
@@ -166,12 +205,13 @@ export default function TodosScreen() {
           renderItem={({ item }) => {
             const isDone = item?.done === true;
             const isUpdating = updatingTodos.has(item?._id);
+            const isDeleting = deletingTodos.has(item?._id);
             return (
               <View style={styles.todoItem}>
                 <TouchableOpacity
                   style={styles.checkboxContainer}
                   onPress={() => toggleTodo(item)}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isDeleting}
                 >
                   <View style={[styles.checkbox, isDone && styles.checkboxChecked]}>
                     {isDone && <Text style={styles.checkmark}>✓</Text>}
@@ -180,6 +220,13 @@ export default function TodosScreen() {
                 <Text style={[styles.todoText, isDone && styles.todoTextDone]}>
                   {item?.text || ""}
                 </Text>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => deleteTodo(item)}
+                  disabled={isDeleting}
+                >
+                  <Text style={styles.deleteIcon}>🗑️</Text>
+                </TouchableOpacity>
               </View>
             );
           }}
@@ -270,6 +317,13 @@ const styles = StyleSheet.create({
   todoTextDone: {
     textDecorationLine: "line-through",
     color: "#999",
+  },
+  deleteButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  deleteIcon: {
+    fontSize: 20,
   },
 });
 
