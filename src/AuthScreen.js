@@ -11,14 +11,49 @@ export default function AuthScreen() {
   const [error, setError] = useState(null);
 
   const onSignIn = async () => {
+    console.log("=== Sign In Attempt Started ===");
+    console.log("Email:", email);
+    console.log("Password length:", password.length);
+    console.log("signInLoaded:", signInLoaded);
+    
     setError(null);
-    if (!signInLoaded) return;
+    if (!signInLoaded) {
+      console.log("ERROR: signIn not loaded yet");
+      return;
+    }
 
     try {
+      console.log("Calling signIn.create...");
       const res = await signIn.create({ identifier: email, password });
-      await setActive({ session: res.createdSessionId });
+      console.log("signIn.create response:", {
+        createdSessionId: res.createdSessionId,
+        status: res.status,
+      });
+
+      if (res.createdSessionId) {
+        console.log("Setting active session...");
+        await setActive({ session: res.createdSessionId });
+        console.log("Session set active successfully");
+      } else {
+        console.log("WARNING: No session ID in response");
+      }
     } catch (e) {
-      setError(e?.errors?.[0]?.message ?? "Sign in failed");
+      console.error("Sign in error:", e);
+      console.error("Error details:", {
+        message: e?.message,
+        errors: e?.errors,
+        status: e?.status,
+        code: e?.code,
+        fullError: JSON.stringify(e, null, 2),
+      });
+      
+      // Check for network errors
+      if (e?.message?.includes("network") || e?.message?.includes("fetch") || e?.message?.includes("Network")) {
+        console.error("NETWORK ERROR DETECTED");
+        setError("Network error: " + (e?.message ?? "Unable to connect. Check your internet connection."));
+      } else {
+        setError(e?.errors?.[0]?.message ?? e?.message ?? "Sign in failed");
+      }
     }
   };
 

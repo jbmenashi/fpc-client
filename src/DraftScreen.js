@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = "http://192.168.86.20:3000";
@@ -17,12 +18,6 @@ export default function DraftScreen() {
   const [contestants, setContestants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (leagueId) {
-      fetchDraftData();
-    }
-  }, [leagueId]);
 
   const fetchDraftData = async () => {
     if (!leagueId) return;
@@ -96,6 +91,16 @@ export default function DraftScreen() {
       setLoading(false);
     }
   };
+
+  // Refresh data when screen comes into focus (including initial mount)
+  useFocusEffect(
+    useCallback(() => {
+      if (leagueId) {
+        fetchDraftData();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [leagueId])
+  );
 
   const getActiveContestantId = () => {
     if (!draft || !draft.order || draft.order.length === 0) return null;
@@ -174,12 +179,10 @@ export default function DraftScreen() {
             {draft.results.map((result, index) => (
               <View key={index} style={styles.tableRow}>
                 <Text style={styles.tableCell}>{result.pickNumber || index + 1}</Text>
-                <Text style={styles.tableCell}>
-                  {getContestantTeamName(result.contestantId) || "Unknown"}
-                </Text>
+                <Text style={styles.tableCell}>{result.pickingTeam || "-"}</Text>
                 <Text style={styles.tableCell}>{result.playerName || "-"}</Text>
-                <Text style={styles.tableCell}>{result.playerPosition || "-"}</Text>
-                <Text style={styles.tableCell}>{result.team || "-"}</Text>
+                <Text style={styles.tableCell}>{result.position || "-"}</Text>
+                <Text style={styles.tableCell}>{result.teamName || "-"}</Text>
               </View>
             ))}
           </View>
