@@ -120,6 +120,30 @@ export default function JoinLeagueScreen() {
 
         if (!updateRes.ok) {
           console.error("Failed to update league full status");
+        } else {
+          // Create draft after league becomes full
+          const contestantIds = leagueContestants.map(c => c._id || c.id).filter(id => id);
+          
+          // Shuffle array randomly
+          const shuffledOrder = [...contestantIds].sort(() => Math.random() - 0.5);
+
+          const draftRes = await fetch(`${API_BASE}/drafts`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              leagueId: leagueId,
+              size: selectedLeague.size,
+              order: shuffledOrder,
+              results: [],
+            }),
+          });
+
+          if (!draftRes.ok) {
+            console.error("Failed to create draft");
+          }
         }
       }
 

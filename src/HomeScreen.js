@@ -101,8 +101,6 @@ export default function HomeScreen() {
       {/* {me ? <Text>/me: {JSON.stringify(me)}</Text> : null} */}
       {/* {error ? <Text style={{ color: "red" }}>{error}</Text> : null} */}
 
-      {/* <Button title="View Todos" onPress={() => router.push("/todos")} /> */}
-
       <View style={styles.leaguesSection}>
         <Text style={styles.sectionTitle}>My Leagues</Text>
         <View style={styles.leaguesContent}>
