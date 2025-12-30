@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Button } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = "http://192.168.86.20:3000";
@@ -8,6 +9,7 @@ const API_BASE = "http://192.168.86.20:3000";
 export default function HomeScreen() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
+  const router = useRouter();
   const [me, setMe] = useState(null);
   const [error, setError] = useState(null);
 
@@ -15,6 +17,9 @@ export default function HomeScreen() {
     setError(null);
     try {
       const token = await getToken();
+  
+      console.log("CLERK_TOKEN:", token); // <-- add this line
+  
       const res = await fetch(`${API_BASE}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -33,6 +38,8 @@ export default function HomeScreen() {
       <Button title="Call /me (Express)" onPress={callMe} />
       {me ? <Text>/me: {JSON.stringify(me)}</Text> : null}
       {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
+
+      <Button title="View Todos" onPress={() => router.push("/todos")} />
 
       <Button title="Sign out" onPress={() => signOut()} />
     </View>
