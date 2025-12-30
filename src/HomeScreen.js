@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Button, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Button, FlatList, StyleSheet, ActivityIndicator, Dimensions, TouchableOpacity } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 
@@ -15,6 +15,7 @@ export default function HomeScreen() {
   const [contestants, setContestants] = useState([]);
   const [loadingContestants, setLoadingContestants] = useState(true);
   const [contestantsError, setContestantsError] = useState(null);
+  const [contestantsWithLeagues, setContestantsWithLeagues] = useState([]);
 
   // const callMe = async () => {
   //   setError(null);
@@ -44,22 +45,48 @@ export default function HomeScreen() {
     setContestantsError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`${API_BASE}/contestants`, {
+      
+      // Fetch contestants
+      const contestantsRes = await fetch(`${API_BASE}/contestants`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to fetch contestants: ${res.status}`);
+      if (!contestantsRes.ok) {
+        throw new Error(`Failed to fetch contestants: ${contestantsRes.status}`);
       }
 
-      const data = await res.json();
+      const contestantsData = await contestantsRes.json();
       // Filter contestants where userId matches the logged in user's ID
-      const userContestants = Array.isArray(data)
-        ? data.filter(contestant => contestant.userId === user.id)
+      const userContestants = Array.isArray(contestantsData)
+        ? contestantsData.filter(contestant => contestant.userId === user.id)
         : [];
       setContestants(userContestants);
+
+      // Fetch leagues
+      const leaguesRes = await fetch(`${API_BASE}/leagues`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!leaguesRes.ok) {
+        throw new Error(`Failed to fetch leagues: ${leaguesRes.status}`);
+      }
+
+      const leaguesData = await leaguesRes.json();
+      const leagues = Array.isArray(leaguesData) ? leaguesData : [];
+
+      // Combine contestants with their league information
+      const contestantsWithLeagueInfo = userContestants.map(contestant => {
+        const leagueId = contestant.leagueId?._id || contestant.leagueId?.id || contestant.leagueId;
+        const league = leagues.find(l => (l._id === leagueId || l.id === leagueId));
+        return {
+          ...contestant,
+          leagueName: league?.leagueName || "Unknown League",
+        };
+      });
+
+      setContestantsWithLeagues(contestantsWithLeagueInfo);
     } catch (e) {
-      setContestantsError(e?.message ?? "Failed to fetch contestants");
+      setContestantsError(e?.message ?? "Failed to fetch data");
     } finally {
       setLoadingContestants(false);
     }
@@ -78,23 +105,33 @@ export default function HomeScreen() {
 
       <View style={styles.leaguesSection}>
         <Text style={styles.sectionTitle}>My Leagues</Text>
-        {loadingContestants ? (
-          <ActivityIndicator size="small" />
-        ) : contestantsError ? (
-          <Text style={styles.errorText}>Error: {contestantsError}</Text>
-        ) : contestants.length === 0 ? (
-          <Text style={styles.emptyText}>no leagues available</Text>
-        ) : (
-          <FlatList
-            data={contestants}
-            keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.contestantItem}>
-                <Text style={styles.contestantText}>{JSON.stringify(item, null, 2)}</Text>
-              </View>
-            )}
-          />
-        )}
+        <View style={styles.leaguesContent}>
+          {loadingContestants ? (
+            <ActivityIndicator size="small" />
+          ) : contestantsError ? (
+            <Text style={styles.errorText}>Error: {contestantsError}</Text>
+          ) : contestantsWithLeagues.length === 0 ? (
+            <Text style={styles.emptyText}>no leagues available</Text>
+          ) : (
+            <FlatList
+              data={contestantsWithLeagues}
+              keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
+              renderItem={({ item }) => {
+                const leagueId = item.leagueId?._id || item.leagueId?.id || item.leagueId;
+                return (
+                  <TouchableOpacity
+                    style={styles.contestantItem}
+                    onPress={() => router.push(`/league/${leagueId}`)}
+                  >
+                    <Text style={styles.leagueNameText}>{item.leagueName}</Text>
+                    <Text style={styles.teamNameText}>Team: {item.teamName || "No team name"}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+              scrollEnabled={true}
+            />
+          )}
+        </View>
       </View>
 
       <View style={styles.buttonsContainer}>
@@ -120,11 +157,15 @@ const styles = StyleSheet.create({
   leaguesSection: {
     marginTop: 20,
     marginBottom: 20,
+    flex: 0,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 12,
+  },
+  leaguesContent: {
+    maxHeight: Dimensions.get("window").height * 0.5,
   },
   errorText: {
     color: "red",
@@ -141,9 +182,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
   },
-  contestantText: {
+  leagueNameText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  teamNameText: {
     fontSize: 14,
-    fontFamily: "monospace",
+    color: "#666",
   },
   buttonsContainer: {
     gap: 12,
