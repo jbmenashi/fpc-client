@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList } from "react-native";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = "http://192.168.86.20:3000";
@@ -23,6 +24,40 @@ export default function LeagueScreen() {
       fetchLeagueData();
     }
   }, [leagueId]);
+
+  // Refresh data when screen comes into focus (including when navigated to after draft completion)
+  useFocusEffect(
+    useCallback(() => {
+      if (leagueId) {
+        fetchLeagueData();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [leagueId])
+  );
+
+  // Calculate standings: sort by Total descending, then Team alphabetically
+  // Must be called before any conditional returns to follow Rules of Hooks
+  const sortedContestants = useMemo(() => {
+    const withTotals = contestants.map(c => {
+      const wcPts = c.wcPts || 0;
+      const dvPts = c.dvPts || 0;
+      const ccPts = c.ccPts || 0;
+      const sbPts = c.sbPts || 0;
+      const total = wcPts + dvPts + ccPts + sbPts;
+      return { ...c, total, wcPts, dvPts, ccPts, sbPts };
+    });
+
+    return withTotals.sort((a, b) => {
+      // First sort by Total (descending)
+      if (b.total !== a.total) {
+        return b.total - a.total;
+      }
+      // Then sort by Team name (ascending, alphabetical)
+      const nameA = (a.teamName || "").toLowerCase();
+      const nameB = (b.teamName || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [contestants]);
 
   const fetchLeagueData = async () => {
     if (!leagueId) return;
@@ -110,18 +145,53 @@ export default function LeagueScreen() {
           />
           <Text style={styles.statusText}>league is not full yet</Text>
         </View>
-      ) : !isDrafted ? (
-        <View style={styles.section}>
-          <Text style={styles.statusText}>League is drafting</Text>
-          <Button
-            title="Enter Draft"
-            onPress={() => router.push(`/draft/${leagueId}`)}
-          />
-        </View>
       ) : (
-        <View style={styles.section}>
-          <Text style={styles.statusText}>Standings</Text>
-        </View>
+        <>
+          {!isDrafted && (
+            <View style={styles.section}>
+              <Text style={styles.statusText}>League is drafting</Text>
+              <Button
+                title="Enter Draft"
+                onPress={() => router.push(`/draft/${leagueId}`)}
+              />
+            </View>
+          )}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Standings</Text>
+            <View style={styles.table}>
+              {/* Table Header */}
+              <View style={styles.tableRow}>
+                <Text style={[styles.tableHeader, styles.tableCellTeam]}>Team</Text>
+                <Text style={[styles.tableHeader, styles.tableCell]}>Total</Text>
+                <Text style={[styles.tableHeader, styles.tableCell]}>WC</Text>
+                <Text style={[styles.tableHeader, styles.tableCell]}>DV</Text>
+                <Text style={[styles.tableHeader, styles.tableCell]}>CC</Text>
+                <Text style={[styles.tableHeader, styles.tableCell]}>SB</Text>
+              </View>
+              {/* Table Rows */}
+              {sortedContestants.map((contestant, index) => {
+                const contestantId = contestant._id || contestant.id;
+                return (
+                  <View key={contestantId || index} style={styles.tableRow}>
+                    <TouchableOpacity
+                      style={styles.tableCellTeam}
+                      onPress={() => router.push(`/team/${contestantId}`)}
+                    >
+                      <Text style={styles.tableCellLink}>
+                        {contestant.teamName || "No team name"}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.tableCell}>{contestant.total}</Text>
+                    <Text style={styles.tableCell}>{contestant.wcPts}</Text>
+                    <Text style={styles.tableCell}>{contestant.dvPts}</Text>
+                    <Text style={styles.tableCell}>{contestant.ccPts}</Text>
+                    <Text style={styles.tableCell}>{contestant.sbPts}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </>
       )}
     </View>
   );
@@ -165,6 +235,39 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     fontSize: 16,
+  },
+  table: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  tableHeader: {
+    fontWeight: "600",
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    fontSize: 14,
+  },
+  tableCell: {
+    flex: 1,
+    padding: 12,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  tableCellTeam: {
+    flex: 2,
+    padding: 12,
+  },
+  tableCellLink: {
+    fontSize: 14,
+    color: "#0066cc",
+    textDecorationLine: "underline",
   },
 });
 

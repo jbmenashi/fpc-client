@@ -558,6 +558,10 @@ export default function SelectionScreen() {
           console.error("Failed to mark league as drafted. Response:", errorText);
         } else {
           console.log("League successfully marked as drafted");
+          // Close modal and navigate to LeagueScreen to show updated standings
+          setModalVisible(false);
+          router.push(`/league/${draftId}`);
+          return; // Exit early to avoid the router.back() below
         }
       } else {
         console.log("Draft is not complete yet - skipping PUT request");
