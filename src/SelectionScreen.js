@@ -7,11 +7,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 const API_BASE = "http://192.168.86.20:3000";
 
 export default function SelectionScreen() {
+  console.log("SelectionScreen component rendered");
+  
   const { getToken } = useAuth();
   const { user } = useUser();
   const params = useLocalSearchParams();
   const router = useRouter();
   const draftId = params.id; // This is the leagueId passed from DraftScreen
+  
+  console.log("SelectionScreen - draftId:", draftId);
   
   const [allPlayers, setAllPlayers] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -30,9 +34,15 @@ export default function SelectionScreen() {
   const [teamNameFilter, setTeamNameFilter] = useState("");
   const [positionDropdownVisible, setPositionDropdownVisible] = useState(false);
   const [teamDropdownVisible, setTeamDropdownVisible] = useState(false);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const playersPerPage = 20;
 
   useEffect(() => {
+    console.log("SelectionScreen useEffect - draftId:", draftId);
     if (draftId) {
+      console.log("Fetching draft data and players...");
       fetchDraftData();
       fetchPlayers();
     }
@@ -80,6 +90,8 @@ export default function SelectionScreen() {
     }
 
     setFilteredPlayers(result);
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
   }, [players, playerNameFilter, positionFilter, teamNameFilter]);
 
   const fetchDraftData = async () => {
@@ -232,11 +244,12 @@ export default function SelectionScreen() {
     });
 
     return playersList.filter(player => {
-      const playerId = player._id?.toString() || player.id?.toString() || player.playerId?.toString();
+      // Use playerId field first, not _id
+      const playerId = player.playerId?.toString() || player._id?.toString() || player.id?.toString();
       const position = (player.position || "").toUpperCase();
       const playerTeamId = player.teamId?.toString() || player.team?._id?.toString() || player.team?.id?.toString();
 
-      // Remove players already drafted
+      // Remove players already drafted (checking by playerId)
       if (playerId && draftedPlayerIds.has(playerId)) {
         return false;
       }
@@ -278,16 +291,28 @@ export default function SelectionScreen() {
   };
 
   const handlePlayerPress = (player) => {
+    console.log("handlePlayerPress called with player:", player?.playerName || player?.name || "unknown");
     setSelectedPlayer(player);
     setModalVisible(true);
+    console.log("Modal set to visible");
   };
 
   const handleConfirmSelection = async () => {
-    if (!selectedPlayer || !draft || !user) return;
+    console.log("=== handleConfirmSelection called ===");
+    console.log("selectedPlayer:", selectedPlayer ? "exists" : "null");
+    console.log("draft:", draft ? "exists" : "null");
+    console.log("user:", user ? "exists" : "null");
+    
+    if (!selectedPlayer || !draft || !user) {
+      console.log("Early return - missing required data");
+      return;
+    }
 
     setSubmitting(true);
     try {
+      console.log("Getting token...");
       const token = await getToken();
+      console.log("Token obtained");
       
       // Get current contestant for the user
       const currentContestant = contestants.find(c => c.userId === user.id);
@@ -299,7 +324,11 @@ export default function SelectionScreen() {
       const contestantId = currentContestant._id || currentContestant.id;
 
       // Get player fields (handle different possible field names)
-      const playerId = selectedPlayer._id || selectedPlayer.id || selectedPlayer.playerId;
+      // Use playerId field only - do not fall back to _id
+      const playerId = selectedPlayer.playerId;
+      if (!playerId) {
+        throw new Error("Player ID not found - player object is missing playerId field");
+      }
       const playerName = selectedPlayer.playerName || selectedPlayer.name || "";
       const position = selectedPlayer.position || "";
       const teamId = selectedPlayer.teamId || selectedPlayer.team?._id || selectedPlayer.team?.id || "";
@@ -459,6 +488,11 @@ export default function SelectionScreen() {
       }
 
       // Send PUT request to update draft (second request)
+      console.log("=== Sending PUT request to update draft ===");
+      console.log("draftDocId:", draftDocId);
+      console.log("newOverallPick:", newOverallPick);
+      console.log("updatedResults length:", updatedResults.length);
+      
       const res = await fetch(`${API_BASE}/drafts/${draftDocId}`, {
         method: "PUT",
         headers: {
@@ -474,14 +508,68 @@ export default function SelectionScreen() {
         }),
       });
 
+      console.log("Draft PUT response status:", res.status);
+      console.log("Draft PUT response ok:", res.ok);
+      
       if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Draft PUT failed. Response:", errorText);
         throw new Error(`Failed to update draft: ${res.status}`);
+      }
+
+      console.log("=== Draft Update Complete - Checking if draft is finished ===");
+      
+      // Check if draft is complete (newOverallPick > rounds * size)
+      // rounds and size are fields on the draft object
+      const rounds = draft.rounds || 0;
+      const draftSize = draft.size || size;
+
+      console.log("Draft completion check:");
+      console.log("newOverallPick:", newOverallPick);
+      console.log("rounds:", rounds);
+      console.log("draftSize:", draftSize);
+      console.log("rounds * draftSize:", rounds * draftSize);
+      console.log("Condition (newOverallPick > rounds * draftSize):", newOverallPick > rounds * draftSize);
+      console.log("draft object rounds:", draft.rounds);
+      console.log("draft object size:", draft.size);
+
+      if (newOverallPick > rounds * draftSize) {
+        // Draft is complete, mark league as drafted
+        const requestBody = { drafted: true };
+        console.log("Draft is complete - sending PUT request to /leagues/:id");
+        console.log("draftId (leagueId):", draftId);
+        console.log("Request body:", JSON.stringify(requestBody, null, 2));
+        console.log("Full URL:", `${API_BASE}/leagues/${draftId}`);
+        
+        const draftCompleteRes = await fetch(`${API_BASE}/leagues/${draftId}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log("League PUT response status:", draftCompleteRes.status);
+        console.log("League PUT response ok:", draftCompleteRes.ok);
+
+        if (!draftCompleteRes.ok) {
+          const errorText = await draftCompleteRes.text();
+          console.error("Failed to mark league as drafted. Response:", errorText);
+        } else {
+          console.log("League successfully marked as drafted");
+        }
+      } else {
+        console.log("Draft is not complete yet - skipping PUT request");
       }
 
       // Close modal and navigate back
       setModalVisible(false);
       router.back();
     } catch (e) {
+      console.error("Error in handleConfirmSelection:", e);
+      console.error("Error message:", e?.message);
+      console.error("Error stack:", e?.stack);
       setError(e?.message ?? "Failed to select player");
       setModalVisible(false);
     } finally {
@@ -518,6 +606,12 @@ export default function SelectionScreen() {
     return Array.from(teamNames).sort();
   }, [players]);
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredPlayers.length / playersPerPage);
+  const startIndex = (currentPage - 1) * playersPerPage;
+  const endIndex = startIndex + playersPerPage;
+  const paginatedPlayers = filteredPlayers.slice(startIndex, endIndex);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -546,7 +640,6 @@ export default function SelectionScreen() {
             placeholder="Filter by player name..."
             value={playerNameFilter}
             onChangeText={setPlayerNameFilter}
-            blurOnSubmit={true}
             returnKeyType="done"
             onBlur={() => Keyboard.dismiss()}
           />
@@ -591,20 +684,59 @@ export default function SelectionScreen() {
         {filteredPlayers.length === 0 ? (
           <Text style={styles.emptyText}>No players available</Text>
         ) : (
-          <FlatList
-            data={filteredPlayers}
-            keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.playerItem}
-                onPress={() => handlePlayerPress(item)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.playerText}>{JSON.stringify(item, null, 2)}</Text>
-              </TouchableOpacity>
+          <>
+            <FlatList
+              data={paginatedPlayers}
+              keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.playerItem}
+                  onPress={() => handlePlayerPress(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.playerText}>{JSON.stringify(item, null, 2)}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <View style={styles.paginationContainer}>
+                <TouchableOpacity
+                  style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+                  onPress={() => {
+                    if (currentPage > 1) {
+                      setCurrentPage(currentPage - 1);
+                    }
+                  }}
+                  disabled={currentPage === 1}
+                >
+                  <Text style={[styles.paginationButtonText, currentPage === 1 && styles.paginationButtonTextDisabled]}>
+                    Previous
+                  </Text>
+                </TouchableOpacity>
+                
+                <Text style={styles.paginationText}>
+                  Page {currentPage} of {totalPages} ({filteredPlayers.length} players)
+                </Text>
+                
+                <TouchableOpacity
+                  style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+                  onPress={() => {
+                    if (currentPage < totalPages) {
+                      setCurrentPage(currentPage + 1);
+                    }
+                  }}
+                  disabled={currentPage === totalPages}
+                >
+                  <Text style={[styles.paginationButtonText, currentPage === totalPages && styles.paginationButtonTextDisabled]}>
+                    Next
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
-          />
+          </>
         )}
 
       {/* Position Dropdown Modal */}
@@ -709,7 +841,10 @@ export default function SelectionScreen() {
               <View style={styles.buttonSpacer} />
               <Button
                 title="Yes"
-                onPress={handleConfirmSelection}
+                onPress={() => {
+                  console.log("Yes button pressed in modal");
+                  handleConfirmSelection();
+                }}
                 disabled={submitting}
                 color="#007AFF"
               />
@@ -834,6 +969,42 @@ const styles = StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 16,
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    backgroundColor: "#f9f9f9",
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  paginationButtonDisabled: {
+    backgroundColor: "#ccc",
+  },
+  paginationButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  paginationButtonTextDisabled: {
+    color: "#999",
+  },
+  paginationText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    flex: 1,
+    marginHorizontal: 8,
   },
 });
 
