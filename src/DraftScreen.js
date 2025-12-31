@@ -149,12 +149,13 @@ export default function DraftScreen() {
     ? contestants.find(c => (c._id === activeContestantId || c.id === activeContestantId))
     : null;
   const isUserTurn = activeContestant?.userId === user?.id;
+  const isDraftCompleted = draft.completed === true;
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Draft</Text>
 
-      {isUserTurn && (
+      {isUserTurn && !isDraftCompleted && (
         <View style={styles.turnSection}>
           <Button
             title="its your turn to pick"

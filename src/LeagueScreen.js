@@ -190,6 +190,10 @@ export default function LeagueScreen() {
                 );
               })}
             </View>
+            <Button
+              title="Draft Results"
+              onPress={() => router.push(`/draft/${leagueId}`)}
+            />
           </View>
         </>
       )}

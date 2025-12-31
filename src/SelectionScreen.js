@@ -459,7 +459,8 @@ export default function SelectionScreen() {
       const size = draft.size || draft.order?.length || 1;
 
       // Check if we need to move to next round
-      if (currentPickInRound === size) {
+      const roundWasIncremented = currentPickInRound === size;
+      if (roundWasIncremented) {
         newCurrentRound = newCurrentRound + 1;
         newCurrentPickInRound = 1;
         newDirection = newDirection === "forward" ? "backward" : "forward";
@@ -487,25 +488,39 @@ export default function SelectionScreen() {
         throw new Error("Draft ID not found");
       }
 
+      // Check if draft should be marked as completed
+      const totalRounds = draft.rounds || 0;
+      const shouldMarkCompleted = roundWasIncremented && newCurrentRound > totalRounds;
+
       // Send PUT request to update draft (second request)
       console.log("=== Sending PUT request to update draft ===");
       console.log("draftDocId:", draftDocId);
       console.log("newOverallPick:", newOverallPick);
       console.log("updatedResults length:", updatedResults.length);
+      console.log("roundWasIncremented:", roundWasIncremented);
+      console.log("newCurrentRound:", newCurrentRound);
+      console.log("totalRounds:", totalRounds);
+      console.log("shouldMarkCompleted:", shouldMarkCompleted);
       
+      const requestBody = {
+        results: updatedResults,
+        overallPick: newOverallPick,
+        currentPickInRound: newCurrentPickInRound,
+        currentRound: newCurrentRound,
+        direction: newDirection,
+      };
+
+      if (shouldMarkCompleted) {
+        requestBody.completed = true;
+      }
+
       const res = await fetch(`${API_BASE}/drafts/${draftDocId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          results: updatedResults,
-          overallPick: newOverallPick,
-          currentPickInRound: newCurrentPickInRound,
-          currentRound: newCurrentRound,
-          direction: newDirection,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log("Draft PUT response status:", res.status);
