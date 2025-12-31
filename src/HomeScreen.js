@@ -96,13 +96,23 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Signed in</Text>
-      <Text>{user?.primaryEmailAddress?.emailAddress}</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerText}>FFPC</Text>
+        </View>
+        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* <Button title="Call /me (Express)" onPress={callMe} /> */}
-      {/* {me ? <Text>/me: {JSON.stringify(me)}</Text> : null} */}
-      {/* {error ? <Text style={{ color: "red" }}>{error}</Text> : null} */}
+      {/* Welcome Text */}
+      <Text style={styles.welcomeText}>
+        Welcome {user?.primaryEmailAddress?.emailAddress}
+      </Text>
 
+      {/* My Leagues Section */}
       <View style={styles.leaguesSection}>
         <Text style={styles.sectionTitle}>My Leagues</Text>
         <View style={styles.leaguesContent}>
@@ -134,12 +144,21 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={styles.buttonsContainer}>
-        <Button title="Create League" onPress={() => router.push("/create-league")} />
-        <Button title="Join League" onPress={() => router.push("/join-league")} />
+      {/* Bottom Buttons */}
+      <View style={styles.bottomButtonsContainer}>
+        <TouchableOpacity
+          style={styles.bottomButton}
+          onPress={() => router.push("/create-league")}
+        >
+          <Text style={styles.bottomButtonText}>Create League</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomButton}
+          onPress={() => router.push("/join-league")}
+        >
+          <Text style={styles.bottomButtonText}>Join League</Text>
+        </TouchableOpacity>
       </View>
-
-      <Button title="Sign out" onPress={() => signOut()} />
     </View>
   );
 }
@@ -147,25 +166,61 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    gap: 12,
+    backgroundColor: "#fff",
   },
-  title: {
-    fontSize: 18,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerEmoji: {
+    fontSize: 24,
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  signOutButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "600",
   },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: "500",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    color: "#333",
+  },
   leaguesSection: {
-    marginTop: 20,
-    marginBottom: 20,
-    flex: 0,
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 12,
+    color: "#333",
   },
   leaguesContent: {
-    maxHeight: Dimensions.get("window").height * 0.5,
+    flex: 1,
   },
   errorText: {
     color: "red",
@@ -191,8 +246,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  buttonsContainer: {
+  bottomButtonsContainer: {
+    flexDirection: "row",
     gap: 12,
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    paddingTop: 20,
+    backgroundColor: "#fff",
+  },
+  bottomButton: {
+    flex: 1,
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
