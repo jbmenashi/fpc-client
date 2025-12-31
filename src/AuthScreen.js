@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useSignIn, useSignUp } from "@clerk/clerk-expo";
 import { useFonts } from "expo-font";
 
@@ -88,63 +88,76 @@ export default function AuthScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Top Section - Title and Football Image (60% of screen) */}
-      <View style={styles.topSection}>
-        <Text style={styles.titleWord}>Fantasy</Text>
-        <Text style={styles.titleWord}>Football</Text>
-        <Text style={styles.titleWord}>Playoff</Text>
-        <Text style={styles.titleWord}>Challenge</Text>
-        <Text style={styles.footballEmoji}>🏈</Text>
-      </View>
-
-      {/* Bottom Section - Form (40% of screen) */}
-      <View style={styles.bottomSection}>
-        <TextInput
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="Email"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-        />
-
-        <TextInput
-          secureTextEntry
-          placeholder="Password"
-          placeholderTextColor="#999"
-          value={password}
-          onChangeText={setPassword}
-          style={styles.input}
-        />
-
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={onSignIn}>
-            <Text style={styles.buttonText}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={onSignUp}>
-            <Text style={styles.buttonText}>Sign Up</Text>
-          </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Section - Title and Football Image (60% of screen) */}
+        <View style={styles.topSection}>
+          <Text style={styles.titleWord}>Fantasy</Text>
+          <Text style={styles.titleWord}>Football</Text>
+          <Text style={styles.titleWord}>Playoff</Text>
+          <Text style={styles.titleWord}>Challenge</Text>
+          <Text style={styles.footballEmoji}>🏈</Text>
         </View>
-      </View>
-    </View>
+
+        {/* Bottom Section - Form (40% of screen) */}
+        <View style={styles.bottomSection}>
+          <TextInput
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="Email"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+          />
+
+          <TextInput
+            secureTextEntry
+            placeholder="Password"
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+          />
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.button} onPress={onSignIn}>
+              <Text style={styles.buttonText}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={onSignUp}>
+              <Text style={styles.buttonText}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#4A7C59", // Darker forest green
+    backgroundColor: "#054919", // Darker forest green
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   topSection: {
     flex: 3, // 60% of screen (3 out of 5 total flex units)
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 90,
+    paddingTop: 50,
   },
   titleWord: {
     fontSize: 54,
