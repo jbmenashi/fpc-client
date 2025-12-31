@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, ScrollView } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useFonts } from "expo-font";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;    
 
 export default function LeagueScreen() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -18,6 +19,10 @@ export default function LeagueScreen() {
   const [contestants, setContestants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [fontsLoaded] = useFonts({
+    "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
+  });
 
   useEffect(() => {
     if (leagueId) {
@@ -106,6 +111,14 @@ export default function LeagueScreen() {
     }
   };
 
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -128,6 +141,20 @@ export default function LeagueScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/")}>
+          <Text style={styles.headerButtonText}>← Home</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerTitle}>FFPC</Text>
+        </View>
+        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.headerButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>{league.leagueName}</Text>
 
       {!isFull ? (
@@ -159,43 +186,41 @@ export default function LeagueScreen() {
             </View>
           )}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Standings</Text>
-            <View style={styles.table}>
-              {/* Table Header */}
-              <View style={styles.tableRow}>
-                <Text style={[styles.tableHeader, styles.tableCellTeam]}>Team</Text>
-                <Text style={[styles.tableHeader, styles.tableCell]}>Total</Text>
-                <Text style={[styles.tableHeader, styles.tableCell]}>WC</Text>
-                <Text style={[styles.tableHeader, styles.tableCell]}>DV</Text>
-                <Text style={[styles.tableHeader, styles.tableCell]}>CC</Text>
-                <Text style={[styles.tableHeader, styles.tableCell]}>SB</Text>
-              </View>
-              {/* Table Rows */}
+            <ScrollView style={styles.standingsScrollView} contentContainerStyle={styles.standingsContainer}>
               {sortedContestants.map((contestant, index) => {
                 const contestantId = contestant._id || contestant.id;
+                const position = index + 1;
+                // Determine background color based on position
+                let headerBackgroundColor = "#000000"; // Default black
+                if (position === 1) headerBackgroundColor = "#FFD700"; // Gold
+                else if (position === 2) headerBackgroundColor = "#C0C0C0"; // Silver
+                else if (position === 3) headerBackgroundColor = "#CD7F32"; // Bronze
+                
                 return (
-                  <View key={contestantId || index} style={styles.tableRow}>
+                  <View key={contestantId || index} style={styles.standingsBlock}>
                     <TouchableOpacity
-                      style={styles.tableCellTeam}
+                      style={[styles.standingsHeader, { backgroundColor: headerBackgroundColor }]}
                       onPress={() => router.push(`/team/${contestantId}`)}
                     >
-                      <Text style={styles.tableCellLink}>
-                        {contestant.teamName || "No team name"}
+                      <Text style={styles.standingsHeaderText}>
+                        {position}. {contestant.teamName || "No team name"} - {contestant.total} pts
                       </Text>
                     </TouchableOpacity>
-                    <Text style={styles.tableCell}>{contestant.total}</Text>
-                    <Text style={styles.tableCell}>{contestant.wcPts}</Text>
-                    <Text style={styles.tableCell}>{contestant.dvPts}</Text>
-                    <Text style={styles.tableCell}>{contestant.ccPts}</Text>
-                    <Text style={styles.tableCell}>{contestant.sbPts}</Text>
+                    <View style={styles.standingsSubheader}>
+                      <Text style={styles.standingsSubheaderText}>
+                        WC: {contestant.wcPts} | DV: {contestant.dvPts} | CC: {contestant.ccPts} | SB: {contestant.sbPts}
+                      </Text>
+                    </View>
                   </View>
                 );
               })}
-            </View>
-            <Button
-              title="Draft Results"
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.draftResultsButton}
               onPress={() => router.push(`/draft/${leagueId}`)}
-            />
+            >
+              <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -206,19 +231,65 @@ export default function LeagueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   title: {
-    fontSize: 24,
+    fontSize: 42,
     fontWeight: "600",
     marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    textAlign: "center",
+    fontFamily: "SairaStencilOne-Regular",
   },
   section: {
     marginTop: 20,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "500",
     marginBottom: 12,
   },
@@ -242,38 +313,49 @@ const styles = StyleSheet.create({
     color: "red",
     fontSize: 16,
   },
-  table: {
+  standingsScrollView: {
+    maxHeight: 450, // Approximately 5 blocks (90px per block including gap)
+  },
+  standingsContainer: {
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
+    gap: 12,
+    paddingBottom: 12,
+  },
+  standingsBlock: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
     overflow: "hidden",
   },
-  tableRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
+  standingsHeader: {
+    backgroundColor: "#000000",
+    padding: 12,
   },
-  tableHeader: {
+  standingsHeaderText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  standingsSubheader: {
+    backgroundColor: "#e0e0e0",
+    padding: 10,
+  },
+  standingsSubheaderText: {
+    color: "#000000",
+    fontSize: 14,
+  },
+  draftResultsButton: {
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+  draftResultsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "600",
-    backgroundColor: "#f5f5f5",
-    padding: 12,
-    fontSize: 14,
-  },
-  tableCell: {
-    flex: 1,
-    padding: 12,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  tableCellTeam: {
-    flex: 2,
-    padding: 12,
-  },
-  tableCellLink: {
-    fontSize: 14,
-    color: "#0066cc",
-    textDecorationLine: "underline",
   },
 });
 
