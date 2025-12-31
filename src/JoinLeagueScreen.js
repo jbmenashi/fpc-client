@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 export default function JoinLeagueScreen() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const router = useRouter();
   const [leagues, setLeagues] = useState([]);
@@ -41,7 +41,30 @@ export default function JoinLeagueScreen() {
       const availableLeagues = Array.isArray(data)
         ? data.filter(league => league.full === false)
         : [];
-      setLeagues(availableLeagues);
+
+      // Fetch contestants to count per league
+      const contestantsRes = await fetch(`${API_BASE}/contestants`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (contestantsRes.ok) {
+        const allContestants = await contestantsRes.json();
+        const contestantsArray = Array.isArray(allContestants) ? allContestants : [];
+
+        // Add contestant count to each league
+        const leaguesWithCounts = availableLeagues.map(league => {
+          const leagueId = league._id || league.id;
+          const contestantCount = contestantsArray.filter(c => {
+            const cLeagueId = c.leagueId?._id || c.leagueId?.id || c.leagueId;
+            return cLeagueId === leagueId;
+          }).length;
+          return { ...league, contestantCount };
+        });
+
+        setLeagues(leaguesWithCounts);
+      } else {
+        setLeagues(availableLeagues);
+      }
     } catch (e) {
       setError(e?.message ?? "Failed to fetch leagues");
     } finally {
@@ -168,31 +191,65 @@ export default function JoinLeagueScreen() {
   };
 
   if (selectedLeague) {
+    const contestantCount = selectedLeague.contestantCount || 0;
+    const leagueSize = selectedLeague.size || 0;
+
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Join League</Text>
-        <Text style={styles.leagueName}>{selectedLeague.leagueName}</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/")}>
+            <Text style={styles.headerButtonText}>← Home</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerEmoji}>🏈</Text>
+            <Text style={styles.headerTitle}>FFPC</Text>
+          </View>
+          <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+            <Text style={styles.headerButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Team Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your team name"
-            value={teamName}
-            onChangeText={setTeamName}
-            editable={!submitting}
-          />
+        <View style={styles.selectedLeagueContainer}>
+          {/* League Info Block (not clickable) */}
+          <View style={styles.selectedLeagueItem}>
+            <Text style={styles.selectedLeagueItemText}>{selectedLeague.leagueName}</Text>
+            <Text style={styles.selectedLeagueItemSubtext}>
+              {contestantCount} of {leagueSize} spots filled
+            </Text>
+          </View>
 
-          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-          {success ? <Text style={styles.successText}>Successfully joined league!</Text> : null}
-
-          <View style={styles.buttonContainer}>
-            <Button title="Back" onPress={handleBack} disabled={submitting} />
-            <Button
-              title={submitting ? "Joining..." : "Join League"}
-              onPress={handleJoin}
-              disabled={submitting}
+          <View style={styles.formContainer}>
+            <Text style={styles.label}>Team Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your team name"
+              value={teamName}
+              onChangeText={setTeamName}
+              editable={!submitting}
             />
+
+            {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+            {success ? <Text style={styles.successText}>Successfully joined league!</Text> : null}
+
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={styles.backActionButton}
+                onPress={handleBack}
+                disabled={submitting}
+              >
+                <Text style={styles.actionButtonText}>←</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.joinActionButton, submitting && styles.actionButtonDisabled]}
+                onPress={handleJoin}
+                disabled={submitting}
+              >
+                <Text style={styles.actionButtonText}>
+                  {submitting ? "Joining..." : "Join League"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -201,6 +258,20 @@ export default function JoinLeagueScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/")}>
+          <Text style={styles.headerButtonText}>← Home</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerTitle}>FFPC</Text>
+        </View>
+        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.headerButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>Join a League</Text>
 
       {loading ? (
@@ -212,15 +283,23 @@ export default function JoinLeagueScreen() {
       ) : (
         <FlatList
           data={leagues}
+          contentContainerStyle={styles.listContent}
           keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.leagueItem}
-              onPress={() => handleLeagueSelect(item)}
-            >
-              <Text style={styles.leagueItemText}>{item.leagueName}</Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const contestantCount = item.contestantCount || 0;
+            const leagueSize = item.size || 0;
+            return (
+              <TouchableOpacity
+                style={styles.leagueItem}
+                onPress={() => handleLeagueSelect(item)}
+              >
+                <Text style={styles.leagueItemText}>{item.leagueName}</Text>
+                <Text style={styles.leagueItemSubtext}>
+                  {contestantCount} of {leagueSize} spots filled
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -230,22 +309,67 @@ export default function JoinLeagueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   title: {
     fontSize: 24,
     fontWeight: "600",
     marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   leagueName: {
     fontSize: 20,
     fontWeight: "500",
     marginBottom: 20,
     color: "#007AFF",
+    paddingHorizontal: 20,
   },
   formContainer: {
     gap: 12,
+    paddingHorizontal: 20,
   },
   label: {
     fontSize: 16,
@@ -262,10 +386,62 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     fontSize: 14,
+    paddingHorizontal: 20,
   },
   successText: {
     color: "green",
     fontSize: 14,
+  },
+  selectedLeagueContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  selectedLeagueItem: {
+    padding: 15,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  selectedLeagueItemText: {
+    fontSize: 18,
+    color: "#000000",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  selectedLeagueItemSubtext: {
+    fontSize: 14,
+    color: "#666",
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+  backActionButton: {
+    flex: 0.1,
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  joinActionButton: {
+    flex: 0.9,
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -277,15 +453,26 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginTop: 50,
+    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingHorizontal: 20,
   },
   leagueItem: {
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    marginBottom: 12,
   },
   leagueItemText: {
     fontSize: 18,
-    color: "#007AFF",
+    color: "#000000",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  leagueItemSubtext: {
+    fontSize: 14,
+    color: "#666",
   },
 });
 

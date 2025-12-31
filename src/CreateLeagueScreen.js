@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 
@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 export default function CreateLeagueScreen() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const router = useRouter();
   const [leagueName, setLeagueName] = useState("");
@@ -126,9 +126,23 @@ export default function CreateLeagueScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/")}>
+          <Text style={styles.headerButtonText}>← Home</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerTitle}>FFPC</Text>
+        </View>
+        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.headerButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
       {!leagueCreated ? (
         <>
-          <Text style={styles.title}>Create League</Text>
+          <Text style={styles.title}>Create New League</Text>
 
           <View style={styles.formContainer}>
             <Text style={styles.label}>League Name</Text>
@@ -153,17 +167,22 @@ export default function CreateLeagueScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {success ? <Text style={styles.successText}>League created successfully!</Text> : null}
 
-            <Button
-              title={submitting ? "Creating..." : "Create League"}
+            <TouchableOpacity
+              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
               onPress={handleSubmit}
               disabled={submitting}
-            />
+            >
+              <Text style={styles.submitButtonText}>
+                {submitting ? "Creating..." : "Create League"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </>
       ) : (
         <>
-          <Text style={styles.title}>Enter Your Team Name</Text>
-          <Text style={styles.subtitle}>League created! Now enter your team name to join.</Text>
+          <Text style={styles.subtitle}>
+            League created!{"\n"}Now enter your team name to join.
+          </Text>
 
           <View style={styles.formContainer}>
             <Text style={styles.label}>Team Name</Text>
@@ -178,11 +197,15 @@ export default function CreateLeagueScreen() {
             {teamError ? <Text style={styles.errorText}>{teamError}</Text> : null}
             {teamSuccess ? <Text style={styles.successText}>Team created successfully!</Text> : null}
 
-            <Button
-              title={submittingTeam ? "Creating..." : "Create Team"}
+            <TouchableOpacity
+              style={[styles.submitButton, submittingTeam && styles.submitButtonDisabled]}
               onPress={handleTeamSubmit}
               disabled={submittingTeam}
-            />
+            >
+              <Text style={styles.submitButtonText}>
+                {submittingTeam ? "Creating..." : "Create Team"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -193,16 +216,60 @@ export default function CreateLeagueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   title: {
     fontSize: 24,
     fontWeight: "600",
     marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   formContainer: {
     gap: 12,
+    paddingHorizontal: 20,
   },
   label: {
     fontSize: 16,
@@ -225,9 +292,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 24,
     color: "#666",
     marginBottom: 20,
+    textAlign: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  submitButton: {
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 
