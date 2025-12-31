@@ -172,17 +172,20 @@ export default function LeagueScreen() {
               );
             }}
           />
-          <Text style={styles.statusText}>league is not full yet</Text>
+          <Text style={styles.statusText}>
+            League is not full yet: {league.size - contestants.length} spots remaining!
+          </Text>
         </View>
       ) : (
         <>
           {!isDrafted && (
             <View style={styles.section}>
-              <Text style={styles.statusText}>League is drafting</Text>
-              <Button
-                title="Enter Draft"
+              <TouchableOpacity
+                style={styles.enterDraftButton}
                 onPress={() => router.push(`/draft/${leagueId}`)}
-              />
+              >
+                <Text style={styles.enterDraftButtonText}>Enter Draft</Text>
+              </TouchableOpacity>
             </View>
           )}
           <View style={styles.section}>
@@ -190,11 +193,29 @@ export default function LeagueScreen() {
               {sortedContestants.map((contestant, index) => {
                 const contestantId = contestant._id || contestant.id;
                 const position = index + 1;
+                
+                // If not drafted, show simple team list without ranks/points
+                if (!isDrafted) {
+                  return (
+                    <View key={contestantId || index} style={styles.standingsBlock}>
+                      <TouchableOpacity
+                        style={styles.standingsHeaderSimple}
+                        onPress={() => router.push(`/team/${contestantId}`)}
+                      >
+                        <Text style={styles.standingsHeaderTextSimple}>
+                          {contestant.teamName || "No team name"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+                
+                // If drafted, show full standings with ranks and points
                 // Determine background color based on position
                 let headerBackgroundColor = "#000000"; // Default black
-                if (position === 1) headerBackgroundColor = "#FFD700"; // Gold
-                else if (position === 2) headerBackgroundColor = "#C0C0C0"; // Silver
-                else if (position === 3) headerBackgroundColor = "#CD7F32"; // Bronze
+                if (position === 1) headerBackgroundColor = "#D4AF37"; // Darker gold
+                else if (position === 2) headerBackgroundColor = "#A8A8A8"; // Darker silver
+                else if (position === 3) headerBackgroundColor = "#A0522D"; // Darker bronze
                 
                 return (
                   <View key={contestantId || index} style={styles.standingsBlock}>
@@ -215,12 +236,14 @@ export default function LeagueScreen() {
                 );
               })}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.draftResultsButton}
-              onPress={() => router.push(`/draft/${leagueId}`)}
-            >
-              <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
-            </TouchableOpacity>
+            {isDrafted && (
+              <TouchableOpacity
+                style={styles.draftResultsButton}
+                onPress={() => router.push(`/draft/${leagueId}`)}
+              >
+                <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </>
       )}
@@ -353,6 +376,30 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   draftResultsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  enterDraftButton: {
+    backgroundColor: "#054919",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  enterDraftButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  standingsHeaderSimple: {
+    backgroundColor: "#000000",
+    padding: 12,
+    borderRadius: 8,
+  },
+  standingsHeaderTextSimple: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",

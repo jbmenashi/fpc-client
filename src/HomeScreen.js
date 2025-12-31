@@ -83,6 +83,8 @@ export default function HomeScreen() {
         return {
           ...contestant,
           leagueName: league?.leagueName || "Unknown League",
+          leagueFull: league?.full || false,
+          leagueDrafted: league?.drafted || false,
         };
       });
 
@@ -128,12 +130,18 @@ export default function HomeScreen() {
               keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
               renderItem={({ item }) => {
                 const leagueId = item.leagueId?._id || item.leagueId?.id || item.leagueId;
+                const isDrafting = item.leagueFull && !item.leagueDrafted;
                 return (
                   <TouchableOpacity
                     style={styles.contestantItem}
                     onPress={() => router.push(`/league/${leagueId}`)}
                   >
-                    <Text style={styles.leagueNameText}>{item.leagueName}</Text>
+                    <View style={styles.leagueNameRow}>
+                      <Text style={styles.leagueNameText}>{item.leagueName}</Text>
+                      {isDrafting && (
+                        <Text style={styles.draftingText}>League is drafting!</Text>
+                      )}
+                    </View>
                     <Text style={styles.teamNameText}>Team: {item.teamName || "No team name"}</Text>
                   </TouchableOpacity>
                 );
@@ -237,10 +245,21 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
   },
+  leagueNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+    flexWrap: "wrap",
+  },
   leagueNameText: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
+  },
+  draftingText: {
+    fontSize: 14,
+    color: "#FF0000",
+    fontWeight: "600",
   },
   teamNameText: {
     fontSize: 14,
