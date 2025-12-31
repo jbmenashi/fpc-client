@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
-const API_BASE = "http://192.168.86.20:3000";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE;    
 
 export default function LeagueScreen() {
   const { getToken } = useAuth();
@@ -71,6 +71,8 @@ export default function LeagueScreen() {
       const leagueRes = await fetch(`${API_BASE}/leagues/${leagueId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      console.log("leagueRes:", leagueRes);
 
       if (!leagueRes.ok) {
         throw new Error(`Failed to fetch league: ${leagueRes.status}`);

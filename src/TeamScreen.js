@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams } from "expo-router";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
-const API_BASE = "http://192.168.86.20:3000";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 export default function TeamScreen() {
   const { getToken } = useAuth();
