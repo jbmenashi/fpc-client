@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from "react-native";
 import { useSignIn, useSignUp } from "@clerk/clerk-expo";
+import { useFonts } from "expo-font";
 
 export default function AuthScreen() {
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
@@ -9,6 +10,10 @@ export default function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+
+  const [fontsLoaded] = useFonts({
+    "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
+  });
 
   const onSignIn = async () => {
     console.log("=== Sign In Attempt Started ===");
@@ -74,31 +79,126 @@ export default function AuthScreen() {
     }
   };
 
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </View>
+    );
+  }
+
   return (
-    <View style={{ padding: 20, gap: 12 }}>
-      <Text style={{ fontSize: 20, fontWeight: "600" }}>Sign in</Text>
+    <View style={styles.container}>
+      {/* Top Section - Title and Football Image (60% of screen) */}
+      <View style={styles.topSection}>
+        <Text style={styles.titleWord}>Fantasy</Text>
+        <Text style={styles.titleWord}>Football</Text>
+        <Text style={styles.titleWord}>Playoff</Text>
+        <Text style={styles.titleWord}>Challenge</Text>
+        <Text style={styles.footballEmoji}>🏈</Text>
+      </View>
 
-      <Text>Email</Text>
-      <TextInput
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        style={{ borderWidth: 1, padding: 10, borderRadius: 6 }}
-      />
+      {/* Bottom Section - Form (40% of screen) */}
+      <View style={styles.bottomSection}>
+        <TextInput
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="Email"
+          placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+        />
 
-      <Text>Password</Text>
-      <TextInput
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={{ borderWidth: 1, padding: 10, borderRadius: 6 }}
-      />
+        <TextInput
+          secureTextEntry
+          placeholder="Password"
+          placeholderTextColor="#999"
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+        />
 
-      {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Button title="Sign In" onPress={onSignIn} />
-      <Button title="Sign Up" onPress={onSignUp} />
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.button} onPress={onSignIn}>
+            <Text style={styles.buttonText}>Sign In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={onSignUp}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#4A7C59", // Darker forest green
+  },
+  topSection: {
+    flex: 3, // 60% of screen (3 out of 5 total flex units)
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 90,
+  },
+  titleWord: {
+    fontSize: 54,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: 2,
+    marginBottom: 0,
+    fontFamily: "SairaStencilOne-Regular",
+  },
+  footballEmoji: {
+    fontSize: 100,
+    marginTop: 10,
+  },
+  bottomSection: {
+    flex: 2, // 40% of screen (2 out of 5 total flex units)
+    justifyContent: "center",
+    paddingHorizontal: 30,
+    paddingTop: 10,
+    paddingBottom: 50,
+  },
+  input: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DDD",
+    borderRadius: 8,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  errorText: {
+    color: "#FF4444",
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 15,
+    marginTop: 10,
+  },
+  button: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: {
+    color: "#000000",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});
