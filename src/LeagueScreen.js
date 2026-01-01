@@ -187,7 +187,10 @@ export default function LeagueScreen() {
           <Text style={styles.headerEmoji}>🏈</Text>
           <Text style={styles.headerTitle}>FFPC</Text>
         </View>
-        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+        <TouchableOpacity style={styles.signOutButton} onPress={async () => {
+          await signOut();
+          router.replace("/");
+        }}>
           <Text style={styles.headerButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </View>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -8,7 +8,7 @@ import { useFocusEffect } from "@react-navigation/native";
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;  
 
 export default function DraftScreen() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -152,17 +152,58 @@ export default function DraftScreen() {
   const isDraftCompleted = draft.completed === true;
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Draft</Text>
-
-      {isUserTurn && !isDraftCompleted && (
-        <View style={styles.turnSection}>
-          <Button
-            title="its your turn to pick"
-            onPress={() => router.push(`/selection/${leagueId}`)}
-          />
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push(`/league/${leagueId}`)}>
+          <Text style={styles.headerButtonText}>← League</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerTitle}>FFPC</Text>
         </View>
-      )}
+        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.headerButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.scrollContent}>
+        <Text style={styles.title}>
+          Draft: Round {draft.currentRound || 1}, Pick {draft.currentPickInRound || 1}
+        </Text>
+
+        {!isDraftCompleted && (
+          <View style={styles.turnSection}>
+            {isUserTurn ? (
+              <TouchableOpacity
+                style={styles.yourTurnButton}
+                onPress={() => router.push(`/selection/${leagueId}`)}
+              >
+                <Text style={styles.yourTurnButtonText}>It's your turn to pick</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.otherTurnText}>
+                {activeContestant?.teamName || "Unknown"} is on the clock
+              </Text>
+            )}
+          </View>
+        )}
+
+        <View style={styles.draftOrderSection}>
+          <Text style={styles.draftOrderTitle}>Draft Order</Text>
+          <View style={styles.draftOrderContainer}>
+            {draft.order && draft.order.length > 0 ? (
+              <Text style={styles.draftOrderText}>
+                {draft.order.map((contestantId, index) => {
+                  const teamName = getContestantTeamName(contestantId);
+                  return `${index + 1}. ${teamName}`;
+                }).join(", ")}
+              </Text>
+            ) : (
+              <Text style={styles.emptyText}>No draft order available</Text>
+            )}
+          </View>
+        </View>
 
       <View style={styles.resultsSection}>
         <Text style={styles.sectionTitle}>Draft Results</Text>
@@ -189,15 +230,61 @@ export default function DraftScreen() {
           </View>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  scrollContent: {
+    flex: 1,
+    padding: 20,
   },
   title: {
     fontSize: 24,
@@ -206,6 +293,44 @@ const styles = StyleSheet.create({
   },
   turnSection: {
     marginBottom: 20,
+    alignItems: "center",
+  },
+  yourTurnButton: {
+    backgroundColor: "#B22222", // Medium-dark red
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  yourTurnButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  otherTurnText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+  },
+  draftOrderSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  draftOrderTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  draftOrderContainer: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    padding: 12,
+  },
+  draftOrderText: {
+    fontSize: 14,
+    color: "#333",
   },
   resultsSection: {
     marginTop: 20,
