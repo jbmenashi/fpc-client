@@ -4,9 +4,28 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import teamListData from "../assets/teamList.json";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE;    
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
+
+// Roster position mapping for display
+const rosterPositionMap = {
+  qb1: "QB",
+  qb2: "QB",
+  rb1: "RB",
+  rb2: "RB",
+  wr1: "WR",
+  wr2: "WR",
+  wr3: "WR",
+  te1: "TE",
+  fl1: "FL",
+  fl2: "FL",
+  fl3: "FL",
+  fl4: "FL",
+  kicker: "K",
+  dst: "DST",
+};    
 
 export default function LeagueScreen() {
   const { getToken, signOut } = useAuth();
@@ -62,7 +81,25 @@ export default function LeagueScreen() {
       const nameB = (b.teamName || "").toLowerCase();
       return nameA.localeCompare(nameB);
     });
-  }, [contestants]);
+  }, [contestants, user?.id]);
+
+  // Sort contestants for non-drafted state: user's team first, then alphabetical
+  const sortedContestantsForDraft = useMemo(() => {
+    if (!contestants || contestants.length === 0) return [];
+    return [...contestants].sort((a, b) => {
+      const aIsUser = a.userId === user?.id;
+      const bIsUser = b.userId === user?.id;
+      
+      // User's team always first
+      if (aIsUser && !bIsUser) return -1;
+      if (!aIsUser && bIsUser) return 1;
+      
+      // Otherwise sort alphabetically by team name
+      const nameA = (a.teamName || "").toLowerCase();
+      const nameB = (b.teamName || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [contestants, user?.id]);
 
   const fetchLeagueData = async () => {
     if (!leagueId) return;
@@ -190,12 +227,29 @@ export default function LeagueScreen() {
           )}
           <View style={styles.section}>
             <ScrollView style={styles.standingsScrollView} contentContainerStyle={styles.standingsContainer}>
-              {sortedContestants.map((contestant, index) => {
+              {(isDrafted ? sortedContestants : sortedContestantsForDraft).map((contestant, index) => {
                 const contestantId = contestant._id || contestant.id;
                 const position = index + 1;
                 
                 // If not drafted, show simple team list without ranks/points
                 if (!isDrafted) {
+                  const roster = contestant.roster || {};
+                  
+                  // Find null positions
+                  const nullPositions = Object.keys(rosterPositionMap)
+                    .filter(key => !roster[key])
+                    .map(key => rosterPositionMap[key]);
+                  
+                  // Find teams that are NOT in the roster
+                  const allTeams = teamListData.teams || [];
+                  const rosterTeams = new Set();
+                  Object.values(roster).forEach(player => {
+                    if (player && player.teamName) {
+                      rosterTeams.add(player.teamName);
+                    }
+                  });
+                  const teamsLeft = allTeams.filter(team => !rosterTeams.has(team));
+                  
                   return (
                     <View key={contestantId || index} style={styles.standingsBlock}>
                       <TouchableOpacity
@@ -206,6 +260,18 @@ export default function LeagueScreen() {
                           {contestant.teamName || "No team name"}
                         </Text>
                       </TouchableOpacity>
+                      <View style={styles.standingsInfoLine}>
+                        <Text style={styles.standingsInfoText}>
+                          <Text style={styles.standingsInfoLabel}>Positions Left: </Text>
+                          {nullPositions.length > 0 ? nullPositions.join(", ") : "None"}
+                        </Text>
+                      </View>
+                      <View style={styles.standingsInfoLine}>
+                        <Text style={styles.standingsInfoText}>
+                          <Text style={styles.standingsInfoLabel}>Teams Left: </Text>
+                          {teamsLeft.length > 0 ? teamsLeft.join(", ") : "None"}
+                        </Text>
+                      </View>
                     </View>
                   );
                 }
@@ -403,6 +469,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  standingsInfoLine: {
+    backgroundColor: "#e0e0e0",
+    padding: 10,
+  },
+  standingsInfoText: {
+    color: "#000000",
+    fontSize: 14,
+  },
+  standingsInfoLabel: {
+    fontWeight: "700",
   },
 });
 
