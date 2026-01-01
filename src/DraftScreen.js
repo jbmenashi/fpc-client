@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useCallback, useEffect } from "react";
+import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import teamListData from "../assets/teamList.json";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;  
@@ -17,6 +18,7 @@ export default function DraftScreen() {
 
   const [draft, setDraft] = useState(null);
   const [contestants, setContestants] = useState([]);
+  const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -102,10 +104,51 @@ export default function DraftScreen() {
     useCallback(() => {
       if (leagueId) {
         fetchDraftData();
+        fetchPlayers();
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [leagueId])
   );
+
+  useEffect(() => {
+    if (leagueId) {
+      fetchPlayers();
+    }
+  }, [leagueId]);
+
+  const fetchPlayers = async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/players`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch players: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const fetchedPlayers = Array.isArray(data) ? data : [];
+      setAllPlayers(fetchedPlayers);
+    } catch (e) {
+      console.error("Failed to fetch players:", e);
+    }
+  };
+
+  const getPlayerData = (playerId) => {
+    if (!playerId) return null;
+    return allPlayers.find(p => 
+      (p.playerId?.toString() === playerId.toString()) ||
+      (p._id?.toString() === playerId.toString()) ||
+      (p.id?.toString() === playerId.toString())
+    );
+  };
+
+  const getTeamBackgroundColor = (teamName) => {
+    if (!teamName) return "#f5f5f5";
+    const team = teamListData.teams.find(t => t.name === teamName);
+    return team?.backgroundColor || "#f5f5f5";
+  };
 
   const getActiveContestantId = () => {
     if (!draft || !draft.order || draft.order.length === 0) return null;
@@ -181,65 +224,102 @@ export default function DraftScreen() {
       </View>
 
       <ScrollView style={styles.scrollContent}>
-        <Text style={styles.title}>
-          Draft: Round {draft.currentRound || 1}, Pick {draft.currentPickInRound || 1}
-        </Text>
-
         {!isDraftCompleted && (
-          <View style={styles.turnSection}>
-            {isUserTurn ? (
-              <TouchableOpacity
-                style={styles.yourTurnButton}
-                onPress={() => router.push(`/selection/${leagueId}`)}
-              >
-                <Text style={styles.yourTurnButtonText}>It's your turn to pick</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.otherTurnText}>
-                {activeContestant?.teamName || "Unknown"} is on the clock
-              </Text>
-            )}
-          </View>
-        )}
+          <>
+            <Text style={styles.title}>
+              Draft: Round {draft.currentRound || 1}, Pick {draft.currentPickInRound || 1}
+            </Text>
 
-        <View style={styles.draftOrderSection}>
-          <Text style={styles.draftOrderTitle}>Draft Order</Text>
-          <View style={styles.draftOrderContainer}>
-            {draft.order && draft.order.length > 0 ? (
-              <Text style={styles.draftOrderText}>
-                {draft.order.map((contestantId, index) => {
-                  const teamName = getContestantTeamName(contestantId);
-                  return `${index + 1}. ${teamName}`;
-                }).join(", ")}
-              </Text>
-            ) : (
-              <Text style={styles.emptyText}>No draft order available</Text>
-            )}
-          </View>
-        </View>
+            <View style={styles.turnSection}>
+              {isUserTurn ? (
+                <TouchableOpacity
+                  style={styles.yourTurnButton}
+                  onPress={() => router.push(`/selection/${leagueId}`)}
+                >
+                  <Text style={styles.yourTurnButtonText}>It's your turn to pick</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.otherTurnText}>
+                  {activeContestant?.teamName || "Unknown"} is on the clock
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.draftOrderSection}>
+              <Text style={styles.draftOrderTitle}>Draft Order</Text>
+              <View style={styles.draftOrderContainer}>
+                {draft.order && draft.order.length > 0 ? (
+                  <Text style={styles.draftOrderText}>
+                    {draft.order.map((contestantId, index) => {
+                      const teamName = getContestantTeamName(contestantId);
+                      return `${index + 1}. ${teamName}`;
+                    }).join(", ")}
+                  </Text>
+                ) : (
+                  <Text style={styles.emptyText}>No draft order available</Text>
+                )}
+              </View>
+            </View>
+          </>
+        )}
 
       <View style={styles.resultsSection}>
         <Text style={styles.sectionTitle}>Draft Results</Text>
         {!draft.results || draft.results.length === 0 ? (
           <Text style={styles.emptyText}>no picks made yet</Text>
         ) : (
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableCell, styles.headerCell]}>Pick #</Text>
-              <Text style={[styles.tableCell, styles.headerCell]}>Manager</Text>
-              <Text style={[styles.tableCell, styles.headerCell]}>Player Name</Text>
-              <Text style={[styles.tableCell, styles.headerCell]}>Position</Text>
-              <Text style={[styles.tableCell, styles.headerCell]}>Team</Text>
-            </View>
-            {draft.results.map((result, index) => (
-              <View key={index} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{result.pickNumber || index + 1}</Text>
-                <Text style={styles.tableCell}>{result.pickingTeam || "-"}</Text>
-                <Text style={styles.tableCell}>{result.playerName || "-"}</Text>
-                <Text style={styles.tableCell}>{result.position || "-"}</Text>
-                <Text style={styles.tableCell}>{result.teamName || "-"}</Text>
-              </View>
-            ))}
+          <View style={styles.resultsContainer}>
+            {[...draft.results].sort((a, b) => {
+              const pickA = a.pickNumber || 0;
+              const pickB = b.pickNumber || 0;
+              // If completed is true, sort ascending; if false, sort descending
+              return isDraftCompleted ? pickA - pickB : pickB - pickA;
+            }).map((result, index) => {
+              const pickNumber = result.pickNumber || index + 1;
+              const teamName = result.teamName || result.pickingTeam || "-";
+              const playerId = result.playerId;
+              const fullPlayerData = playerId ? getPlayerData(playerId) : null;
+              const playerPhoto = fullPlayerData?.playerPhoto || null;
+              const teamPhoto = fullPlayerData?.teamPhoto || null;
+              const playerName = result.playerName || "-";
+              const position = result.position || "-";
+              const backgroundColor = getTeamBackgroundColor(teamName);
+
+              return (
+                <View key={index} style={[styles.playerBlock, { backgroundColor }]}>
+                  <View style={styles.pickHeader}>
+                    <Text style={styles.pickHeaderText}>
+                      Pick #{pickNumber}: {result.pickingTeam || teamName}
+                    </Text>
+                  </View>
+                  <View style={styles.playerBlockContent}>
+                    <View style={styles.playerBlockTopRow}>
+                      <View style={styles.playerBlockLeft}>
+                        {playerPhoto && (
+                          <Image
+                            source={{ uri: playerPhoto }}
+                            style={styles.playerPhoto}
+                            resizeMode="cover"
+                          />
+                        )}
+                        <Text style={styles.playerBlockTopText}>
+                          <Text style={styles.playerPositionText}>{position}</Text>
+                          {" "}
+                          <Text style={styles.playerNameText}>{playerName}</Text>
+                        </Text>
+                      </View>
+                      {teamPhoto && (
+                        <Image
+                          source={{ uri: teamPhoto }}
+                          style={styles.teamPhoto}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
@@ -360,30 +440,60 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginTop: 12,
   },
-  table: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
+  resultsContainer: {
     marginTop: 12,
+    gap: 12,
   },
-  tableHeader: {
+  playerBlock: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  pickHeader: {
+    backgroundColor: "#000000",
+    padding: 12,
+  },
+  pickHeaderText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  playerBlockContent: {
+    padding: 12,
+  },
+  playerBlockTopRow: {
     flexDirection: "row",
-    backgroundColor: "#f5f5f5",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  tableRow: {
+  playerBlockLeft: {
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  tableCell: {
+    alignItems: "center",
     flex: 1,
-    padding: 10,
-    fontSize: 14,
+    gap: 12,
   },
-  headerCell: {
-    fontWeight: "600",
+  playerPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+  },
+  playerBlockTopText: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    flex: 1,
+  },
+  playerPositionText: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  playerNameText: {
+    fontSize: 20,
+  },
+  teamPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
   },
   errorText: {
     color: "red",
