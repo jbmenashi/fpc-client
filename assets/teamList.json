@@ -1,5 +1,19 @@
 {
     "teams": [
-        "DEN", "NE", "JAX", "BAL", "LAC", "HOU", "BUF", "SF", "CHI", "PHI", "CAR", "SEA", "LAR", "GB"
+        {"name": "DEN", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/den.png", "backgroundColor": "#FB4F14"}, 
+        {"name": "NE", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/ne.png", "backgroundColor": "#0C2340"},
+        {"name": "JAX", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/jax.png", "backgroundColor": "#006778"},
+        {"name": "BAL", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/bal.png", "backgroundColor": "#241773"},
+        {"name": "LAC", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/lac.png", "backgroundColor": "#002A5C"},
+        {"name": "HOU", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/hou.png", "backgroundColor": "#03202F"},
+        {"name": "BUF", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/buf.png", "backgroundColor": "#00338D"},
+        {"name": "SF", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/sf.png", "backgroundColor": "#AA0000"},
+        {"name": "CHI", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/chi.png", "backgroundColor": "#0B162A"},
+        {"name": "PHI", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/phi.png", "backgroundColor": "#004C54"},
+        {"name": "CAR", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/car.png", "backgroundColor": "#0085CA"},
+        {"name": "SEA", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/sea.png", "backgroundColor": "#002244"},
+        {"name": "LAR", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/lar.png", "backgroundColor": "#003594"},
+        {"name": "GB", "photo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/gb.png", "backgroundColor": "#203731"}
     ]
 }
+

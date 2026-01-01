@@ -3,6 +3,7 @@ import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, Touchabl
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useFonts } from "expo-font";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;  
@@ -18,6 +19,10 @@ export default function DraftScreen() {
   const [contestants, setContestants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [fontsLoaded] = useFonts({
+    "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
+  });
 
   const fetchDraftData = async () => {
     if (!leagueId) return;
@@ -127,6 +132,14 @@ export default function DraftScreen() {
     const contestant = contestants.find(c => (c._id === contestantId || c.id === contestantId));
     return contestant?.teamName || "Unknown";
   };
+
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -290,6 +303,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "600",
     marginBottom: 20,
+    fontFamily: "SairaStencilOne-Regular",
   },
   turnSection: {
     marginBottom: 20,

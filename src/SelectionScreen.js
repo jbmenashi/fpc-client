@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Modal, TouchableOpacity, Button, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback } from "react-native";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Modal, TouchableOpacity, Button, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback, Image, Alert } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFonts } from "expo-font";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
+import teamListData from "../assets/teamList.json";
 
 export default function SelectionScreen() {
   console.log("SelectionScreen component rendered");
   
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const params = useLocalSearchParams();
   const router = useRouter();
   const draftId = params.id; // This is the leagueId passed from DraftScreen
+
+  const [fontsLoaded] = useFonts({
+    "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
+  });
   
   console.log("SelectionScreen - draftId:", draftId);
   
@@ -23,7 +29,6 @@ export default function SelectionScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const [draft, setDraft] = useState(null);
   const [contestants, setContestants] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -292,18 +297,39 @@ export default function SelectionScreen() {
 
   const handlePlayerPress = (player) => {
     console.log("handlePlayerPress called with player:", player?.playerName || player?.name || "unknown");
-    setSelectedPlayer(player);
-    setModalVisible(true);
-    console.log("Modal set to visible");
+    const playerName = player.playerName || player.name || "this player";
+    Alert.alert(
+      "Confirm Selection",
+      `Would you like to select ${playerName}?`,
+      [
+        {
+          text: "No",
+          style: "cancel",
+          onPress: () => {
+            console.log("User cancelled selection");
+            setSelectedPlayer(null);
+          }
+        },
+        {
+          text: "Yes",
+          onPress: () => {
+            console.log("User confirmed selection");
+            setSelectedPlayer(player);
+            handleConfirmSelection(player);
+          }
+        }
+      ]
+    );
   };
 
-  const handleConfirmSelection = async () => {
+  const handleConfirmSelection = async (player) => {
+    const playerToUse = player || selectedPlayer;
     console.log("=== handleConfirmSelection called ===");
-    console.log("selectedPlayer:", selectedPlayer ? "exists" : "null");
+    console.log("selectedPlayer:", playerToUse ? "exists" : "null");
     console.log("draft:", draft ? "exists" : "null");
     console.log("user:", user ? "exists" : "null");
     
-    if (!selectedPlayer || !draft || !user) {
+    if (!playerToUse || !draft || !user) {
       console.log("Early return - missing required data");
       return;
     }
@@ -325,14 +351,14 @@ export default function SelectionScreen() {
 
       // Get player fields (handle different possible field names)
       // Use playerId field only - do not fall back to _id
-      const playerId = selectedPlayer.playerId;
+      const playerId = playerToUse.playerId;
       if (!playerId) {
         throw new Error("Player ID not found - player object is missing playerId field");
       }
-      const playerName = selectedPlayer.playerName || selectedPlayer.name || "";
-      const position = selectedPlayer.position || "";
-      const teamId = selectedPlayer.teamId || selectedPlayer.team?._id || selectedPlayer.team?.id || "";
-      const playerTeamName = selectedPlayer.teamName || selectedPlayer.team?.teamName || "";
+      const playerName = playerToUse.playerName || playerToUse.name || "";
+      const position = playerToUse.position || "";
+      const teamId = playerToUse.teamId || playerToUse.team?._id || playerToUse.team?.id || "";
+      const playerTeamName = playerToUse.teamName || playerToUse.team?.teamName || "";
 
       // Fetch current contestant to get roster - check availability FIRST
       const contestantRes = await fetch(`${API_BASE}/contestants/${contestantId}`, {
@@ -573,8 +599,8 @@ export default function SelectionScreen() {
           console.error("Failed to mark league as drafted. Response:", errorText);
         } else {
           console.log("League successfully marked as drafted");
-          // Close modal and navigate to LeagueScreen to show updated standings
-          setModalVisible(false);
+          // Navigate to LeagueScreen to show updated standings
+          setSelectedPlayer(null);
           router.push(`/league/${draftId}`);
           return; // Exit early to avoid the router.back() below
         }
@@ -582,27 +608,28 @@ export default function SelectionScreen() {
         console.log("Draft is not complete yet - skipping PUT request");
       }
 
-      // Close modal and navigate back
-      setModalVisible(false);
+      // Navigate back
+      setSelectedPlayer(null);
       router.back();
     } catch (e) {
       console.error("Error in handleConfirmSelection:", e);
       console.error("Error message:", e?.message);
       console.error("Error stack:", e?.stack);
       setError(e?.message ?? "Failed to select player");
-      setModalVisible(false);
+      setSelectedPlayer(null);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCancelSelection = () => {
-    setModalVisible(false);
-    setSelectedPlayer(null);
-  };
-
   const getPlayerDisplayName = (player) => {
     return player.playerName || player.name || "Unknown Player";
+  };
+
+  const getTeamBackgroundColor = (teamName) => {
+    if (!teamName) return "#f5f5f5"; // Default grey if no team name
+    const team = teamListData.teams.find(t => t.name === teamName);
+    return team?.backgroundColor || "#f5f5f5"; // Default grey if team not found
   };
 
   // Get unique positions and team names from filtered players
@@ -631,6 +658,14 @@ export default function SelectionScreen() {
   const endIndex = startIndex + playersPerPage;
   const paginatedPlayers = filteredPlayers.slice(startIndex, endIndex);
 
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -650,7 +685,25 @@ export default function SelectionScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
-        <Text style={styles.title}>Select a Player</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push(`/draft/${draftId}`)}>
+            <Text style={styles.headerButtonText}>← Draft</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerEmoji}>🏈</Text>
+            <Text style={styles.headerTitle}>FFPC</Text>
+          </View>
+          <TouchableOpacity style={styles.signOutButton} onPress={async () => {
+            await signOut();
+            router.replace("/");
+          }}>
+            <Text style={styles.headerButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.contentContainer}>
+          <Text style={styles.title}>Select a Player</Text>
         
         {/* Filter Section */}
         <View style={styles.filtersContainer}>
@@ -663,29 +716,31 @@ export default function SelectionScreen() {
             onBlur={() => Keyboard.dismiss()}
           />
           
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => {
-              Keyboard.dismiss();
-              setPositionDropdownVisible(true);
-            }}
-          >
-            <Text style={styles.dropdownButtonText}>
-              {positionFilter || "All Positions"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.dropdownsRow}>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => {
+                Keyboard.dismiss();
+                setPositionDropdownVisible(true);
+              }}
+            >
+              <Text style={styles.dropdownButtonText}>
+                {positionFilter || "All Positions"} ▼
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => {
-              Keyboard.dismiss();
-              setTeamDropdownVisible(true);
-            }}
-          >
-            <Text style={styles.dropdownButtonText}>
-              {teamNameFilter || "All Teams"}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => {
+                Keyboard.dismiss();
+                setTeamDropdownVisible(true);
+              }}
+            >
+              <Text style={styles.dropdownButtonText}>
+                {teamNameFilter || "All Teams"} ▼
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {(positionFilter || teamNameFilter || playerNameFilter) && (
             <Button
@@ -708,15 +763,37 @@ export default function SelectionScreen() {
               data={paginatedPlayers}
               keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || index.toString()}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.playerItem}
-                  onPress={() => handlePlayerPress(item)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.playerText}>{JSON.stringify(item, null, 2)}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const teamName = item.teamName || item.team?.teamName || "";
+                const backgroundColor = getTeamBackgroundColor(teamName);
+                return (
+                  <TouchableOpacity
+                    style={[styles.playerItem, { backgroundColor }]}
+                    onPress={() => handlePlayerPress(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={{ uri: item.playerPhoto }}
+                      style={styles.playerPhoto}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.playerInfoText}>
+                      <Text style={styles.playerPositionText}>
+                        {item.position || ""}
+                      </Text>
+                      {" "}
+                      <Text style={styles.playerNameText}>
+                        {item.playerName || item.name || "Unknown Player"}
+                      </Text>
+                    </Text>
+                    <Image
+                      source={{ uri: item.teamPhoto }}
+                      style={styles.teamPhoto}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                );
+              }}
             />
             
             {/* Pagination Controls */}
@@ -839,41 +916,7 @@ export default function SelectionScreen() {
           </View>
         </View>
       </Modal>
-
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={handleCancelSelection}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Would you like to select {selectedPlayer ? getPlayerDisplayName(selectedPlayer) : "this player"}?
-            </Text>
-            <View style={styles.modalButtons}>
-              <Button
-                title="No"
-                onPress={handleCancelSelection}
-                color="#999"
-              />
-              <View style={styles.buttonSpacer} />
-              <Button
-                title="Yes"
-                onPress={() => {
-                  console.log("Yes button pressed in modal");
-                  handleConfirmSelection();
-                }}
-                disabled={submitting}
-                color="#007AFF"
-              />
-            </View>
-            {submitting && (
-              <ActivityIndicator size="small" style={styles.submittingIndicator} />
-            )}
-          </View>
         </View>
-      </Modal>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -882,13 +925,60 @@ export default function SelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
   },
-  title: {
-    fontSize: 24,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "600",
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
     marginBottom: 20,
+    textAlign: "center",
+    fontFamily: "SairaStencilOne-Regular",
   },
   emptyText: {
     fontSize: 16,
@@ -897,14 +987,35 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   playerItem: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
-    backgroundColor: "#f5f5f5",
     borderRadius: 6,
     marginBottom: 8,
+    gap: 12,
   },
-  playerText: {
-    fontSize: 14,
-    fontFamily: "monospace",
+  playerPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+  },
+  playerInfoText: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#FFFFFF",
+  },
+  playerPositionText: {
+    fontSize: 22, // 20% bigger than 18px (18 * 1.2 = 21.6, rounded to 22)
+    fontWeight: "700", // Bold
+  },
+  playerNameText: {
+    fontSize: 20, // 10% bigger than 18px (18 * 1.1 = 19.8, rounded to 20)
+  },
+  teamPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
   },
   errorText: {
     color: "red",
@@ -915,31 +1026,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 24,
-    width: "80%",
-    maxWidth: 400,
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 24,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-  },
-  buttonSpacer: {
-    width: 12,
-  },
-  submittingIndicator: {
-    marginTop: 16,
   },
   filtersContainer: {
     marginBottom: 16,
@@ -953,12 +1039,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#fff",
   },
+  dropdownsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   dropdownButton: {
+    flex: 1,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 6,
     padding: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "#B0E6B8", // Light mint green
   },
   dropdownButtonText: {
     fontSize: 16,

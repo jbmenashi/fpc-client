@@ -251,18 +251,20 @@ export default function LeagueScreen() {
                       rosterTeams.add(player.teamName);
                     }
                   });
-                  const teamsLeft = allTeams.filter(team => !rosterTeams.has(team));
+                  const teamsLeft = allTeams.filter(team => !rosterTeams.has(team.name)).map(team => team.name);
                   
                   return (
-                    <View key={contestantId || index} style={styles.standingsBlock}>
-                      <TouchableOpacity
-                        style={styles.standingsHeaderSimple}
-                        onPress={() => router.push(`/team/${contestantId}`)}
-                      >
+                    <TouchableOpacity
+                      key={contestantId || index}
+                      style={styles.standingsBlock}
+                      onPress={() => router.push(`/team/${contestantId}`)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.standingsHeaderSimple}>
                         <Text style={styles.standingsHeaderTextSimple}>
                           {contestant.teamName || "No team name"}
                         </Text>
-                      </TouchableOpacity>
+                      </View>
                       <View style={styles.standingsInfoLine}>
                         <Text style={styles.standingsInfoText}>
                           <Text style={styles.standingsInfoLabel}>Positions Left: </Text>
@@ -275,7 +277,7 @@ export default function LeagueScreen() {
                           {teamsLeft.length > 0 ? teamsLeft.join(", ") : "None"}
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 }
                 

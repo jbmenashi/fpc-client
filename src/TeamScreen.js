@@ -1,23 +1,33 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
-import { useLocalSearchParams } from "expo-router";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image } from "react-native";
+import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFonts } from "expo-font";
+import teamListData from "../assets/teamList.json";
 
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 export default function TeamScreen() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
+  const { user } = useUser();
   const params = useLocalSearchParams();
+  const router = useRouter();
   const contestantId = params.id;
 
   const [contestant, setContestant] = useState(null);
+  const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [fontsLoaded] = useFonts({
+    "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
+  });
 
   useEffect(() => {
     if (contestantId) {
       fetchContestantData();
+      fetchPlayers();
     }
   }, [contestantId]);
 
@@ -46,6 +56,40 @@ export default function TeamScreen() {
     }
   };
 
+  const fetchPlayers = async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/players`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch players: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const fetchedPlayers = Array.isArray(data) ? data : [];
+      setAllPlayers(fetchedPlayers);
+    } catch (e) {
+      console.error("Failed to fetch players:", e);
+    }
+  };
+
+  const getTeamBackgroundColor = (teamName) => {
+    if (!teamName) return "#f5f5f5";
+    const team = teamListData.teams.find(t => t.name === teamName);
+    return team?.backgroundColor || "#f5f5f5";
+  };
+
+  const getPlayerData = (playerId) => {
+    if (!playerId) return null;
+    return allPlayers.find(p => 
+      (p.playerId?.toString() === playerId.toString()) ||
+      (p._id?.toString() === playerId.toString()) ||
+      (p.id?.toString() === playerId.toString())
+    );
+  };
+
   // Define roster positions mapping: [display position, roster key]
   const rosterPositions = [
     ["QB", "qb1"],
@@ -64,6 +108,14 @@ export default function TeamScreen() {
     ["DST", "dst"],
   ];
 
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -81,25 +133,40 @@ export default function TeamScreen() {
   }
 
   const roster = contestant.roster || {};
+  const leagueId = contestant.leagueId?._id || contestant.leagueId?.id || contestant.leagueId;
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{contestant.teamName || "No team name"}</Text>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => {
+            if (leagueId) {
+              router.push(`/league/${leagueId}`);
+            } else {
+              router.back();
+            }
+          }}
+        >
+          <Text style={styles.headerButtonText}>← League</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEmoji}>🏈</Text>
+          <Text style={styles.headerTitle}>FFPC</Text>
+        </View>
+        <TouchableOpacity style={styles.signOutButton} onPress={async () => {
+          await signOut();
+          router.replace("/");
+        }}>
+          <Text style={styles.headerButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.section}>
-        <View style={styles.table}>
-          {/* Table Header */}
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableHeader, styles.tableCellPos]}>Pos</Text>
-            <Text style={[styles.tableHeader, styles.tableCellPlayer]}>Player</Text>
-            <Text style={[styles.tableHeader, styles.tableCellTeam]}>Team</Text>
-            <Text style={[styles.tableHeader, styles.tableCell]}>Total</Text>
-            <Text style={[styles.tableHeader, styles.tableCell]}>WC</Text>
-            <Text style={[styles.tableHeader, styles.tableCell]}>DV</Text>
-            <Text style={[styles.tableHeader, styles.tableCell]}>CC</Text>
-            <Text style={[styles.tableHeader, styles.tableCell]}>SB</Text>
-          </View>
-          {/* Table Rows */}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>{contestant.teamName || "No team name"}</Text>
+
+        <View style={styles.section}>
           {rosterPositions.map(([posDisplay, rosterKey], index) => {
             const player = roster[rosterKey];
             const isNull = !player;
@@ -110,96 +177,184 @@ export default function TeamScreen() {
             const sbPts = isNull ? 0 : (player.sbPts || 0);
             const total = wcPts + dvPts + ccPts + sbPts;
 
+            // Get full player data for photos
+            const playerId = player?.playerId || player?._id || player?.id;
+            const fullPlayerData = playerId ? getPlayerData(playerId) : null;
+            const playerPhoto = fullPlayerData?.playerPhoto || null;
+            const teamPhoto = fullPlayerData?.teamPhoto || null;
+            const playerName = player?.playerName || "-";
+            const teamName = player?.teamName || "";
+            const backgroundColor = isNull ? "#000000" : getTeamBackgroundColor(teamName);
+
             return (
-              <View key={rosterKey || index} style={styles.tableRow}>
-                <Text style={styles.tableCellPos}>{posDisplay}</Text>
-                <Text style={styles.tableCellPlayer}>
-                  {isNull ? "-" : (player.playerName || "-")}
-                </Text>
-                <Text style={styles.tableCellTeam}>
-                  {isNull ? "-" : (player.teamName || "-")}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {isNull ? "-" : total}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {isNull ? "-" : wcPts}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {isNull ? "-" : dvPts}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {isNull ? "-" : ccPts}
-                </Text>
-                <Text style={styles.tableCell}>
-                  {isNull ? "-" : sbPts}
-                </Text>
+              <View key={rosterKey || index} style={[styles.playerBlock, { backgroundColor }]}>
+                <View style={styles.playerBlockContent}>
+                  <View style={styles.playerBlockTopRow}>
+                    <View style={styles.playerBlockLeft}>
+                      {playerPhoto && (
+                        <Image
+                          source={{ uri: playerPhoto }}
+                          style={styles.playerPhoto}
+                          resizeMode="cover"
+                        />
+                      )}
+                      <Text style={styles.playerBlockTopText}>
+                        <Text style={styles.playerPositionText}>{posDisplay}</Text>
+                        {" "}
+                        <Text style={styles.playerNameText}>{playerName}</Text>
+                      </Text>
+                    </View>
+                    {!isNull && teamPhoto && (
+                      <Image
+                        source={{ uri: teamPhoto }}
+                        style={styles.teamPhoto}
+                        resizeMode="cover"
+                      />
+                    )}
+                  </View>
+                  {!isNull && (
+                    <View style={styles.playerBlockBottomRow}>
+                      <Text style={styles.playerBlockBottomText}>
+                        WC: {wcPts} | DV: {dvPts} | CC: {ccPts} | SB: {sbPts}
+                      </Text>
+                      <Text style={styles.totalPointsText}>{total} pts</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })}
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#fff",
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#054919",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
+  },
+  backButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 42,
     fontWeight: "600",
     marginBottom: 20,
+    textAlign: "center",
+    fontFamily: "SairaStencilOne-Regular",
   },
   section: {
     marginTop: 10,
+    gap: 12,
   },
   errorText: {
     color: "red",
     fontSize: 16,
   },
-  table: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
+  playerBlock: {
+    borderRadius: 8,
     overflow: "hidden",
+    marginBottom: 8,
   },
-  tableRow: {
+  playerBlockContent: {
+    padding: 12,
+  },
+  playerBlockTopRow: {
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  tableHeader: {
-    fontWeight: "600",
-    backgroundColor: "#f5f5f5",
-    padding: 12,
-    fontSize: 12,
-  },
-  tableCell: {
+  playerBlockLeft: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    padding: 12,
-    fontSize: 12,
-    textAlign: "center",
+    gap: 12,
   },
-  tableCellPos: {
+  playerPhoto: {
     width: 50,
-    padding: 12,
-    fontSize: 12,
-    textAlign: "center",
+    height: 50,
+    borderRadius: 4,
   },
-  tableCellPlayer: {
-    flex: 2,
-    padding: 12,
-    fontSize: 12,
+  playerBlockTopText: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    flex: 1,
   },
-  tableCellTeam: {
-    flex: 1.5,
-    padding: 12,
-    fontSize: 12,
+  playerPositionText: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  playerNameText: {
+    fontSize: 20,
+  },
+  totalPointsText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  playerBlockBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  playerBlockBottomText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    flex: 1,
+  },
+  teamPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
   },
 });
 
