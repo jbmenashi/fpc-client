@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image } from "react-native";
+import { View, Text, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, RefreshControl } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -21,15 +21,18 @@ export default function DraftScreen() {
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [fontsLoaded] = useFonts({
     "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
   });
 
-  const fetchDraftData = async () => {
+  const fetchDraftData = async (isRefresh = false) => {
     if (!leagueId) return;
 
-    setLoading(true);
+    if (!isRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const token = await getToken();
@@ -95,7 +98,9 @@ export default function DraftScreen() {
     } catch (e) {
       setError(e?.message ?? "Failed to fetch draft data");
     } finally {
-      setLoading(false);
+      if (!isRefresh) {
+        setLoading(false);
+      }
     }
   };
 
@@ -134,6 +139,13 @@ export default function DraftScreen() {
       console.error("Failed to fetch players:", e);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDraftData(true);
+    await fetchPlayers();
+    setRefreshing(false);
+  }, [leagueId]);
 
   const getPlayerData = (playerId) => {
     if (!playerId) return null;
@@ -223,7 +235,12 @@ export default function DraftScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {!isDraftCompleted && (
           <>
             <Text style={styles.title}>
