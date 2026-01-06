@@ -16,31 +16,17 @@ export default function AuthScreen() {
   });
 
   const onSignIn = async () => {
-    console.log("=== Sign In Attempt Started ===");
-    console.log("Email:", email);
-    console.log("Password length:", password.length);
-    console.log("signInLoaded:", signInLoaded);
-    
     setError(null);
     if (!signInLoaded) {
-      console.log("ERROR: signIn not loaded yet");
       return;
     }
 
     try {
-      console.log("Calling signIn.create...");
       const res = await signIn.create({ identifier: email, password });
-      console.log("signIn.create response:", {
-        createdSessionId: res.createdSessionId,
-        status: res.status,
-      });
 
       if (res.createdSessionId) {
-        console.log("Setting active session...");
         await setActive({ session: res.createdSessionId });
-        console.log("Session set active successfully");
       } else {
-        console.log("WARNING: No session ID in response");
       }
     } catch (e) {
       console.error("Sign in error:", e);

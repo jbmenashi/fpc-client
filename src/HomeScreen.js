@@ -17,23 +17,6 @@ export default function HomeScreen() {
   const [contestantsError, setContestantsError] = useState(null);
   const [contestantsWithLeagues, setContestantsWithLeagues] = useState([]);
 
-  // const callMe = async () => {
-  //   setError(null);
-  //   try {
-  //     const token = await getToken();
-  
-  //     console.log("CLERK_TOKEN:", token); // <-- add this line
-  
-  //     const res = await fetch(`${API_BASE}/me`, {
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
-  //     const data = await res.json();
-  //     setMe(data);
-  //   } catch (e) {
-  //     setError(e?.message ?? "Request failed");
-  //   }
-  // };
-
   useEffect(() => {
     fetchContestants();
   }, [user?.id]);
@@ -50,8 +33,6 @@ export default function HomeScreen() {
       const contestantsRes = await fetch(`${API_BASE}/contestants`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log("contestantsRes:", contestantsRes);
 
       if (!contestantsRes.ok) {
         throw new Error(`Failed to fetch contestants: ${contestantsRes.status}`);

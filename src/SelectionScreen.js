@@ -9,8 +9,6 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 import teamListData from "../assets/teamList.json";
 
 export default function SelectionScreen() {
-  console.log("SelectionScreen component rendered");
-  
   const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const params = useLocalSearchParams();
@@ -20,8 +18,6 @@ export default function SelectionScreen() {
   const [fontsLoaded] = useFonts({
     "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
   });
-  
-  console.log("SelectionScreen - draftId:", draftId);
   
   const [allPlayers, setAllPlayers] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -45,9 +41,7 @@ export default function SelectionScreen() {
   const playersPerPage = 20;
 
   useEffect(() => {
-    console.log("SelectionScreen useEffect - draftId:", draftId);
     if (draftId) {
-      console.log("Fetching draft data and players...");
       fetchDraftData();
       fetchPlayers();
     }
@@ -296,7 +290,6 @@ export default function SelectionScreen() {
   };
 
   const handlePlayerPress = (player) => {
-    console.log("handlePlayerPress called with player:", player?.playerName || player?.name || "unknown");
     const playerName = player.playerName || player.name || "this player";
     Alert.alert(
       "Confirm Selection",
@@ -306,14 +299,12 @@ export default function SelectionScreen() {
           text: "No",
           style: "cancel",
           onPress: () => {
-            console.log("User cancelled selection");
             setSelectedPlayer(null);
           }
         },
         {
           text: "Yes",
           onPress: () => {
-            console.log("User confirmed selection");
             setSelectedPlayer(player);
             handleConfirmSelection(player);
           }
@@ -324,21 +315,13 @@ export default function SelectionScreen() {
 
   const handleConfirmSelection = async (player) => {
     const playerToUse = player || selectedPlayer;
-    console.log("=== handleConfirmSelection called ===");
-    console.log("selectedPlayer:", playerToUse ? "exists" : "null");
-    console.log("draft:", draft ? "exists" : "null");
-    console.log("user:", user ? "exists" : "null");
-    
     if (!playerToUse || !draft || !user) {
-      console.log("Early return - missing required data");
       return;
     }
 
     setSubmitting(true);
     try {
-      console.log("Getting token...");
       const token = await getToken();
-      console.log("Token obtained");
       
       // Get current contestant for the user
       const currentContestant = contestants.find(c => c.userId === user.id);
@@ -519,15 +502,6 @@ export default function SelectionScreen() {
       const shouldMarkCompleted = roundWasIncremented && newCurrentRound > totalRounds;
 
       // Send PUT request to update draft (second request)
-      console.log("=== Sending PUT request to update draft ===");
-      console.log("draftDocId:", draftDocId);
-      console.log("newOverallPick:", newOverallPick);
-      console.log("updatedResults length:", updatedResults.length);
-      console.log("roundWasIncremented:", roundWasIncremented);
-      console.log("newCurrentRound:", newCurrentRound);
-      console.log("totalRounds:", totalRounds);
-      console.log("shouldMarkCompleted:", shouldMarkCompleted);
-      
       const requestBody = {
         results: updatedResults,
         overallPick: newOverallPick,
@@ -549,39 +523,19 @@ export default function SelectionScreen() {
         body: JSON.stringify(requestBody),
       });
 
-      console.log("Draft PUT response status:", res.status);
-      console.log("Draft PUT response ok:", res.ok);
-      
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Draft PUT failed. Response:", errorText);
         throw new Error(`Failed to update draft: ${res.status}`);
       }
 
-      console.log("=== Draft Update Complete - Checking if draft is finished ===");
-      
       // Check if draft is complete (newOverallPick > rounds * size)
       // rounds and size are fields on the draft object
       const rounds = draft.rounds || 0;
       const draftSize = draft.size || size;
 
-      console.log("Draft completion check:");
-      console.log("newOverallPick:", newOverallPick);
-      console.log("rounds:", rounds);
-      console.log("draftSize:", draftSize);
-      console.log("rounds * draftSize:", rounds * draftSize);
-      console.log("Condition (newOverallPick > rounds * draftSize):", newOverallPick > rounds * draftSize);
-      console.log("draft object rounds:", draft.rounds);
-      console.log("draft object size:", draft.size);
-
       if (newOverallPick > rounds * draftSize) {
         // Draft is complete, mark league as drafted
         const requestBody = { drafted: true };
-        console.log("Draft is complete - sending PUT request to /leagues/:id");
-        console.log("draftId (leagueId):", draftId);
-        console.log("Request body:", JSON.stringify(requestBody, null, 2));
-        console.log("Full URL:", `${API_BASE}/leagues/${draftId}`);
-        
         const draftCompleteRes = await fetch(`${API_BASE}/leagues/${draftId}`, {
           method: "PUT",
           headers: {
@@ -591,30 +545,21 @@ export default function SelectionScreen() {
           body: JSON.stringify(requestBody),
         });
 
-        console.log("League PUT response status:", draftCompleteRes.status);
-        console.log("League PUT response ok:", draftCompleteRes.ok);
-
         if (!draftCompleteRes.ok) {
           const errorText = await draftCompleteRes.text();
-          console.error("Failed to mark league as drafted. Response:", errorText);
         } else {
-          console.log("League successfully marked as drafted");
           // Navigate to LeagueScreen to show updated standings
           setSelectedPlayer(null);
           router.push(`/league/${draftId}`);
           return; // Exit early to avoid the router.back() below
         }
       } else {
-        console.log("Draft is not complete yet - skipping PUT request");
       }
 
       // Navigate back
       setSelectedPlayer(null);
       router.back();
     } catch (e) {
-      console.error("Error in handleConfirmSelection:", e);
-      console.error("Error message:", e?.message);
-      console.error("Error stack:", e?.stack);
       setError(e?.message ?? "Failed to select player");
       setSelectedPlayer(null);
     } finally {

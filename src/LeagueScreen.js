@@ -114,8 +114,6 @@ export default function LeagueScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("leagueRes:", leagueRes);
-
       if (!leagueRes.ok) {
         throw new Error(`Failed to fetch league: ${leagueRes.status}`);
       }
