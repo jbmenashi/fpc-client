@@ -28,6 +28,21 @@ function formatDateShort(ts) {
   return `${month} ${day}, ${time}`;
 }
 
+// Format points: 2 decimal places, or 1 if trailing 0
+function formatPoints(num) {
+  const rounded = Math.round(num * 100) / 100;
+  // If it's a whole number, show no decimals
+  if (rounded === Math.floor(rounded)) {
+    return String(rounded);
+  }
+  // If it ends in .X0, show 1 decimal
+  const twoDecimal = rounded.toFixed(2);
+  if (twoDecimal.endsWith("0")) {
+    return rounded.toFixed(1);
+  }
+  return twoDecimal;
+}
+
 export default function ScoringLogScreen() {
   const { getToken, signOut } = useAuth();
   const { user } = useUser();
@@ -198,7 +213,7 @@ export default function ScoringLogScreen() {
             const ts = item.createdAt || item.updatedAt;
             const pointsChange = item.pointsChange ?? 0;
             const pointsNum = Number(pointsChange) || 0;
-            const pointsText = `${pointsNum >= 0 ? "+" : ""}${pointsNum}`;
+            const pointsText = `${pointsNum >= 0 ? "+" : ""}${formatPoints(pointsNum)}`;
 
             const backgroundColor = getTeamBackgroundColor(teamName);
 

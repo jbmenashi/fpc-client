@@ -9,6 +9,21 @@ import teamListData from "../assets/teamList.json";
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
+// Format points: 2 decimal places, or 1 if trailing 0
+function formatPoints(num) {
+  const rounded = Math.round(num * 100) / 100;
+  // If it's a whole number, show no decimals
+  if (rounded === Math.floor(rounded)) {
+    return String(rounded);
+  }
+  // If it ends in .X0, show 1 decimal
+  const twoDecimal = rounded.toFixed(2);
+  if (twoDecimal.endsWith("0")) {
+    return rounded.toFixed(1);
+  }
+  return twoDecimal;
+}
+
 // Roster position mapping for display
 const rosterPositionMap = {
   qb1: "QB",
@@ -299,12 +314,12 @@ export default function LeagueScreen() {
                       onPress={() => router.push(`/team/${contestantId}`)}
                     >
                       <Text style={styles.standingsHeaderText}>
-                        {position}. {contestant.teamName || "No team name"} - {contestant.total} pts
+                        {position}. {contestant.teamName || "No team name"} - {formatPoints(contestant.total)} pts
                       </Text>
                     </TouchableOpacity>
                     <View style={styles.standingsSubheader}>
                       <Text style={styles.standingsSubheaderText}>
-                        WC: {contestant.wcPts} | DV: {contestant.dvPts} | CC: {contestant.ccPts} | SB: {contestant.sbPts}
+                        WC: {formatPoints(contestant.wcPts)} | DV: {formatPoints(contestant.dvPts)} | CC: {formatPoints(contestant.ccPts)} | SB: {formatPoints(contestant.sbPts)}
                       </Text>
                     </View>
                   </View>

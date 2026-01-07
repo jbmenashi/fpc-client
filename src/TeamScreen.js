@@ -8,6 +8,21 @@ import teamListData from "../assets/teamList.json";
 // IMPORTANT: use your computer's LAN IP (not localhost) when testing on a real phone
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
+// Format points: 2 decimal places, or 1 if trailing 0
+function formatPoints(num) {
+  const rounded = Math.round(num * 100) / 100;
+  // If it's a whole number, show no decimals
+  if (rounded === Math.floor(rounded)) {
+    return String(rounded);
+  }
+  // If it ends in .X0, show 1 decimal
+  const twoDecimal = rounded.toFixed(2);
+  if (twoDecimal.endsWith("0")) {
+    return rounded.toFixed(1);
+  }
+  return twoDecimal;
+}
+
 export default function TeamScreen() {
   const { getToken, signOut } = useAuth();
   const { user } = useUser();
@@ -215,9 +230,9 @@ export default function TeamScreen() {
                   {!isNull && (
                     <View style={styles.playerBlockBottomRow}>
                       <Text style={styles.playerBlockBottomText}>
-                        WC: {wcPts} | DV: {dvPts} | CC: {ccPts} | SB: {sbPts}
+                        WC: {formatPoints(wcPts)} | DV: {formatPoints(dvPts)} | CC: {formatPoints(ccPts)} | SB: {formatPoints(sbPts)}
                       </Text>
-                      <Text style={styles.totalPointsText}>{total} pts</Text>
+                      <Text style={styles.totalPointsText}>{formatPoints(total)} pts</Text>
                     </View>
                   )}
                 </View>
