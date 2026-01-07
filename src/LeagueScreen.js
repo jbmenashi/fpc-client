@@ -170,7 +170,13 @@ export default function LeagueScreen() {
     );
   }
 
-  const isFull = league.full === true;
+  // Some backends don't reliably persist `league.full`.
+  // Treat the league as full if either the flag is true OR the contestant count meets the league size.
+  const computedIsFull =
+    typeof league.size === "number" && league.size > 0
+      ? contestants.length >= league.size
+      : false;
+  const isFull = league.full === true || computedIsFull;
   const isDrafted = league.drafted === true;
   const userContestant = contestants.find(c => c.userId === user?.id);
 
@@ -306,12 +312,20 @@ export default function LeagueScreen() {
               })}
             </ScrollView>
             {isDrafted && (
-              <TouchableOpacity
-                style={styles.draftResultsButton}
-                onPress={() => router.push(`/draft/${leagueId}`)}
-              >
-                <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.draftResultsButton}
+                  onPress={() => router.push(`/scoring-log?leagueId=${encodeURIComponent(String(leagueId))}`)}
+                >
+                  <Text style={styles.draftResultsButtonText}>Scoring Log</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.draftResultsButton}
+                  onPress={() => router.push(`/draft/${leagueId}`)}
+                >
+                  <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </>
@@ -436,7 +450,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   draftResultsButton: {
-    backgroundColor: "#054919",
+    backgroundColor: "#0BA138",
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
