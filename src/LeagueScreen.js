@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, Button, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, ScrollView, RefreshControl } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -53,6 +53,7 @@ export default function LeagueScreen() {
   const [contestants, setContestants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [fontsLoaded] = useFonts({
     "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
@@ -116,10 +117,12 @@ export default function LeagueScreen() {
     });
   }, [contestants, user?.id]);
 
-  const fetchLeagueData = async () => {
+  const fetchLeagueData = async (isRefresh = false) => {
     if (!leagueId) return;
 
-    setLoading(true);
+    if (!isRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const token = await getToken();
@@ -157,9 +160,18 @@ export default function LeagueScreen() {
     } catch (e) {
       setError(e?.message ?? "Failed to fetch league data");
     } finally {
-      setLoading(false);
+      if (!isRefresh) {
+        setLoading(false);
+      }
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLeagueData(true);
+    setRefreshing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId]);
 
   if (!fontsLoaded) {
     return (
@@ -214,7 +226,13 @@ export default function LeagueScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.contentScrollView} contentContainerStyle={styles.contentScrollContent}>
+      <ScrollView 
+        style={styles.contentScrollView} 
+        contentContainerStyle={styles.contentScrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Text style={styles.title}>{league.leagueName}</Text>
 
         {!isFull ? (
@@ -546,7 +564,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   draftResultsButton: {
-    backgroundColor: "#0BA138",
+    backgroundColor: "#150BA1",
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  RefreshControl,
 } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -56,6 +57,7 @@ export default function ScoringLogScreen() {
   const [contestants, setContestants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [fontsLoaded] = useFonts({
     "SairaStencilOne-Regular": require("../assets/fonts/SairaStencilOne-Regular.ttf"),
@@ -83,10 +85,12 @@ export default function ScoringLogScreen() {
     return team?.backgroundColor || "#444444";
   };
 
-  const fetchData = async () => {
+  const fetchData = async (isRefresh = false) => {
     if (!leagueId) return;
 
-    setLoading(true);
+    if (!isRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const token = await getToken();
@@ -130,9 +134,18 @@ export default function ScoringLogScreen() {
     } catch (e) {
       setError(e?.message ?? "Failed to fetch scoring log");
     } finally {
-      setLoading(false);
+      if (!isRefresh) {
+        setLoading(false);
+      }
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData(true);
+    setRefreshing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId]);
 
   if (!fontsLoaded) {
     return (
@@ -189,6 +202,9 @@ export default function ScoringLogScreen() {
           data={logs}
           keyExtractor={(item, index) => item._id?.toString() || item.id?.toString() || String(index)}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           renderItem={({ item }) => {
             const position = item.position || "";
             const playerName = item.playerName || "Unknown Player";
