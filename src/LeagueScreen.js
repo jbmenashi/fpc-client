@@ -214,9 +214,10 @@ export default function LeagueScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.title}>{league.leagueName}</Text>
+      <ScrollView style={styles.contentScrollView} contentContainerStyle={styles.contentScrollContent}>
+        <Text style={styles.title}>{league.leagueName}</Text>
 
-      {!isFull ? (
+        {!isFull ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Teams:</Text>
           <FlatList
@@ -238,17 +239,82 @@ export default function LeagueScreen() {
       ) : (
         <>
           {!isDrafted && (
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.enterDraftButton}
-                onPress={() => router.push(`/draft/${leagueId}`)}
-              >
-                <Text style={styles.enterDraftButtonText}>Enter Draft</Text>
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={styles.enterDraftButton}
+                  onPress={() => router.push(`/draft/${leagueId}`)}
+                >
+                  <Text style={styles.enterDraftButtonText}>Enter Draft</Text>
+                </TouchableOpacity>
+              </View>
+              {/* Teams Remaining Table */}
+              <View style={styles.section}>
+                <Text style={styles.tableTitle}>Teams Drafted</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={true} 
+                  style={styles.tableScrollView}
+                  contentContainerStyle={styles.tableScrollContent}
+                >
+                  <View style={styles.tableContainer}>
+                    {/* Header Row */}
+                    <View style={styles.tableRow}>
+                      <View style={[styles.tableCell, styles.tableHeaderCell, styles.tableFirstColumn]}>
+                        <Text style={styles.tableHeaderText}>Team</Text>
+                      </View>
+                      {(teamListData.teams || []).map((team) => (
+                        <View key={team.name} style={[styles.tableCell, styles.tableHeaderCell, styles.tableDataCell]}>
+                          <Text style={styles.tableHeaderText}>{team.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    {/* Data Rows */}
+                    {sortedContestantsForDraft.map((contestant) => {
+                      const roster = contestant.roster || {};
+                      const contestantTeams = new Set();
+                      Object.values(roster).forEach(player => {
+                        if (player && player.teamName) {
+                          contestantTeams.add(player.teamName);
+                        }
+                      });
+                      
+                      return (
+                        <View key={contestant._id || contestant.id} style={styles.tableRow}>
+                          <View style={[styles.tableCell, styles.tableFirstColumn]}>
+                            <Text style={styles.tableCellText}>{contestant.teamName || "No team name"}</Text>
+                          </View>
+                          {(teamListData.teams || []).map((team) => {
+                            const hasTeam = contestantTeams.has(team.name);
+                            return (
+                              <View 
+                                key={team.name} 
+                                style={[
+                                  styles.tableCell, 
+                                  styles.tableDataCell,
+                                  hasTeam && styles.tableCellGreen
+                                ]}
+                              >
+                                <Text style={styles.tableCellText}></Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            </>
           )}
           <View style={styles.section}>
-            <ScrollView style={styles.standingsScrollView} contentContainerStyle={styles.standingsContainer}>
+            <ScrollView 
+              style={[
+                styles.standingsScrollView,
+                isDrafted && styles.standingsScrollViewDrafted
+              ]} 
+              contentContainerStyle={styles.standingsContainer}
+            >
               {(isDrafted ? sortedContestants : sortedContestantsForDraft).map((contestant, index) => {
                 const contestantId = contestant._id || contestant.id;
                 const position = index + 1;
@@ -327,7 +393,7 @@ export default function LeagueScreen() {
               })}
             </ScrollView>
             {isDrafted && (
-              <>
+              <View style={styles.buttonsContainer}>
                 <TouchableOpacity
                   style={styles.draftResultsButton}
                   onPress={() => router.push(`/scoring-log?leagueId=${encodeURIComponent(String(leagueId))}`)}
@@ -338,13 +404,14 @@ export default function LeagueScreen() {
                   style={styles.draftResultsButton}
                   onPress={() => router.push(`/draft/${leagueId}`)}
                 >
-                  <Text style={styles.draftResultsButtonText}>View Draft Results</Text>
+                  <Text style={styles.draftResultsButtonText}>Draft Results</Text>
                 </TouchableOpacity>
-              </>
+              </View>
             )}
           </View>
         </>
       )}
+      </ScrollView>
     </View>
   );
 }
@@ -397,16 +464,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   title: {
-    fontSize: 42,
+    fontSize: 32,
     fontWeight: "600",
-    marginBottom: 20,
+    marginBottom: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
     textAlign: "center",
     fontFamily: "SairaStencilOne-Regular",
   },
   section: {
-    marginTop: 20,
+    marginTop: 10,
     paddingHorizontal: 20,
   },
   sectionTitle: {
@@ -435,7 +502,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   standingsScrollView: {
-    maxHeight: 450, // Approximately 5 blocks (90px per block including gap)
+    // Removed maxHeight to allow scrolling in outer ScrollView
+  },
+  standingsScrollViewDrafted: {
+    maxHeight: 550, // Limit height when drafted to keep buttons visible
+  },
+  contentScrollView: {
+    flex: 1,
+  },
+  contentScrollContent: {
+    paddingBottom: 20,
   },
   standingsContainer: {
     marginTop: 12,
@@ -464,6 +540,11 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 14,
   },
+  buttonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
   draftResultsButton: {
     backgroundColor: "#0BA138",
     paddingVertical: 15,
@@ -471,7 +552,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
+    flex: 1,
   },
   draftResultsButtonText: {
     color: "#FFFFFF",
@@ -512,6 +593,63 @@ const styles = StyleSheet.create({
   },
   standingsInfoLabel: {
     fontWeight: "700",
+  },
+  tableTitle: {
+    fontSize: 24,
+    fontWeight: "500",
+    marginBottom: 12,
+  },
+  tableScrollView: {
+    marginTop: 12,
+    backgroundColor: "#fff",
+  },
+  tableScrollContent: {
+    paddingRight: 20,
+  },
+  tableContainer: {
+    borderWidth: 2,
+    borderColor: "#333",
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    minHeight: 200,
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+  },
+  tableCell: {
+    padding: 12,
+    minWidth: 60,
+    borderRightWidth: 1,
+    borderRightColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tableHeaderCell: {
+    backgroundColor: "#f5f5f5",
+    fontWeight: "600",
+  },
+  tableFirstColumn: {
+    width: 150,
+    alignItems: "flex-start",
+  },
+  tableDataCell: {
+    padding: 4,
+    minWidth: 50,
+  },
+  tableCellGreen: {
+    backgroundColor: "#0BA138",
+  },
+  tableHeaderText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
+  tableCellText: {
+    fontSize: 14,
+    color: "#000",
   },
 });
 
